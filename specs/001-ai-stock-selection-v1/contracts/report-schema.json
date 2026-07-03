@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trading X V1 Daily Report",
+  "type": "object",
+  "required": [
+    "trade_date",
+    "system_version",
+    "market_status",
+    "allow_new_position",
+    "data_capability",
+    "available_apis",
+    "unavailable_apis",
+    "risk_blocks",
+    "candidates"
+  ],
+  "properties": {
+    "trade_date": {
+      "type": "string",
+      "pattern": "^[0-9]{8}$"
+    },
+    "system_version": {
+      "type": "string"
+    },
+    "market_status": {
+      "type": "string"
+    },
+    "allow_new_position": {
+      "type": "boolean"
+    },
+    "data_capability": {
+      "type": "string",
+      "enum": ["FULL", "BASIC", "BASIC_WITH_THEME_FALLBACK", "DEGRADED"]
+    },
+    "available_apis": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "unavailable_apis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["api_name", "fallback_mode"],
+        "properties": {
+          "api_name": { "type": "string" },
+          "last_error_code": { "type": ["string", "null"] },
+          "last_error_msg": { "type": ["string", "null"] },
+          "fallback_mode": { "type": "string" }
+        }
+      }
+    },
+    "theme_confidence": {
+      "type": "string",
+      "enum": ["HIGH", "MEDIUM", "LOW", "UNAVAILABLE"]
+    },
+    "risk_blocks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "ts_code",
+          "name",
+          "strategy_type",
+          "candidate_grade",
+          "theme_name",
+          "theme_tags",
+          "theme_rank_today",
+          "theme_strength_score",
+          "theme_position",
+          "entry_reason",
+          "veto_items",
+          "buy_observation",
+          "abandon_conditions",
+          "max_chase_limit",
+          "structural_stop",
+          "suggested_position",
+          "max_loss",
+          "data_confidence",
+          "theme_confidence",
+          "event_confidence"
+        ],
+        "properties": {
+          "ts_code": { "type": "string" },
+          "name": { "type": "string" },
+          "strategy_type": {
+            "type": "string",
+            "enum": ["A_SPACE_LEADER", "B_CAPACITY_LEADER"]
+          },
+          "candidate_grade": {
+            "type": "string",
+            "enum": ["A_STRONG", "A_LITE", "B_CORE", "B_WATCH"]
+          },
+          "theme_name": { "type": ["string", "null"] },
+          "theme_tags": { "type": ["string", "null"] },
+          "theme_rank_today": { "type": ["integer", "null"] },
+          "theme_strength_score": { "type": ["number", "null"] },
+          "theme_position": { "type": ["string", "null"] },
+          "entry_reason": { "type": "string" },
+          "veto_items": { "type": "string" },
+          "buy_observation": { "type": "string" },
+          "abandon_conditions": { "type": "string" },
+          "max_chase_limit": { "type": "string" },
+          "structural_stop": { "type": "string" },
+          "suggested_position": { "type": "string" },
+          "max_loss": { "type": "string" },
+          "data_confidence": {
+            "type": "string",
+            "enum": ["HIGH", "MEDIUM", "LOW", "UNAVAILABLE"]
+          },
+          "theme_confidence": {
+            "type": "string",
+            "enum": ["HIGH", "MEDIUM", "LOW", "UNAVAILABLE"]
+          },
+          "event_confidence": {
+            "type": "string",
+            "enum": ["HIGH", "MEDIUM", "LOW", "UNAVAILABLE"]
+          }
+        }
+      }
+    }
+  }
+}

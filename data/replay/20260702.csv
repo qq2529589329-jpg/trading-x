@@ -1,0 +1,2 @@
+trade_date,quote_time,ts_code,price,amount_since_open,volume_since_open,bar_high,bar_low
+20260702,09:34:00,300003.SZ,9.75,9000000,900000,9.85,9.70

@@ -1,0 +1,167 @@
+# Analyze: Intraday Replay MVP
+
+**Date**: 2026-06-30
+**Scope**: Constitution, spec, plan, data model, contracts, and tasks for `002-intraday-replay-mvp`.
+
+## Result
+
+No blocking contradictions found.
+
+## Checks
+
+- Constitution requires structured plans before alerts. Spec and implementation path use `intraday_plans` and do not parse Markdown for execution values.
+- Constitution requires replay before live watch. Spec excludes realtime watch and live providers from MVP.
+- Constitution requires reproducible replay runs. Data model and plan require `intraday_replay_runs.input_sha256`.
+- `intraday_replay_runs` enforces non-null replay-run audit fields, so reproducibility records cannot omit the input path, hash, counts, status, or timing fields.
+- Replay-run migration drops legacy rows missing required audit fields, so older local databases cannot carry incomplete reproducibility records into the rebuilt table.
+- Successful replay coverage now checks the returned `ReplayResult`, `intraday_replay_runs`, and `replay_report.md` against the same input SHA-256, so the reproducibility record cannot drift from the report artifact.
+- Successful replay coverage also checks persisted `started_at` and `ended_at` against `ReplayResult`, so run timing metadata cannot be blanked or swapped during recording.
+- Replay reports repeat both `input_file` and `input_sha256`, so report artifacts remain reproducible without querying SQLite.
+- Unreadable-input failed reports still include the `input_sha256` field as an empty value, so filesystem failure paths keep the same reproducibility surface.
+- CSV validation failure coverage now checks `intraday_replay_runs` and `replay_report.md` against the same malformed input SHA-256, so failed tuning runs remain reproducible.
+- CSV validation failure coverage also checks failed-run `started_at` and `ended_at`, so failed tuning attempts keep the same timing audit guarantees as successful runs.
+- Same-date rerun coverage now checks that `intraday_replay_runs` is append-only for changed input CSV hashes, so later reruns cannot erase the evidence for earlier tuning attempts.
+- Constitution forbids sell semantics without positions. Spec limits stop failure to `ENTRY_CANCELLED` and excludes `SELL_TRIGGER`.
+- Replay CSV contract includes `volume_since_open`, and the contract test locks the exact MVP field list, so VWAP can be computed from amount and volume.
+- Replay CSV parsing is isolated from replay orchestration, so further rule work can extend `run_replay` without mixing input-boundary parsing into the evaluator flow.
+- Replay validation failures still write `replay_report.md`, preserving `error_message` alongside `intraday_replay_runs`.
+- CLI replay failure coverage now drives the real `trading_x replay --input` surface, so CSV validation failures return a non-zero exit code, print the replay error reason, and still record the failed replay run.
+- Missing `official_pre_close` allows observation but blocks buy trigger.
+- `PRE_CLOSE_MISSING` remains a non-terminal `WATCH` state with no alert lock, so missing official pre-close cannot silently arm a buy.
+- Negative `official_pre_close` is invalid plan data, not a missing-source sentinel; replay disables that plan with `PLAN_INVALID` before alert evaluation.
+- Malformed loaded `official_pre_close` text is invalid plan data, not a missing-source sentinel; DB-boundary parsing preserves it as a non-finite plan value so `PLAN_INVALID` handles it.
+- Malformed pre-close source data during materialization is invalid plan data, not a missing-source sentinel; materialized plans keep that distinction through replay.
+- Plan materialization falls back to `daily_quotes.pre_close` when `stk_limit_prices.pre_close` is missing, while preserving the preferred limit-price source when present.
+- Plan materialization records `pre_close_source = missing` and `official_pre_close = 0.0` when both official pre-close sources are unavailable, preserving the replay rule that WATCH may fire while BUY_TRIGGER stays blocked.
+- `volume_gate_enabled` is a real rule switch, not a decorative plan field.
+- Loaded boolean plan fields treat only integer/text `1` as true, so SQLite text such as `false` cannot accidentally enable trading or volume gates.
+- Enabled volume gates require a positive `volume_min_abs_amount`, so an enabled-but-thresholdless gate cannot silently allow `BUY_TRIGGER`.
+- Volume profile parameters require a positive same-window multiplier and non-negative monotonic time-bucket ratios, so future volume tuning cannot inherit malformed plan values.
+- `vwap_above_confirm_seconds` is a real rule window before `BUY_TRIGGER`, not a decorative plan field.
+- The VWAP confirmation timer starts only after the volume gate passes, so under-threshold above-VWAP bars cannot pre-age a later trigger.
+- The VWAP confirmation timer also starts only inside the entry range, so chased-zone above-VWAP bars cannot pre-age a later trigger.
+- `vwap_above_confirm_seconds` must be non-negative, so malformed plans cannot turn the confirmation window into an instant trigger.
+- Missing or `NULL` `vwap_above_confirm_seconds` is invalid, so absent confirmation-window data cannot silently become immediate confirmation.
+- Fractional `vwap_above_confirm_seconds` is invalid, so SQLite-loaded values such as `1.5` cannot be truncated into a valid confirmation window.
+- Missing or `NULL` `vwap_active_after` is parsed as an invalid activation window, so replay disables the plan instead of crashing during validation.
+- Malformed loaded plan numeric fields are parsed into invalid plan values at the DB boundary, so replay disables the plan and still writes its report instead of raising conversion errors.
+- `BUY_READY` has an observable acceptance path when VWAP is confirmed, volume passes, and price is inside the entry range but below breakout.
+- Alert snapshots preserve `bar_high` and `bar_low`, so replay alerts can be reviewed against the triggering bar.
+- Alert snapshot coverage now locks the complete required replay bar payload: price, cumulative amount, cumulative volume, computed VWAP, `bar_high`, and `bar_low`.
+- Zero cumulative volume keeps `continuous_vwap` unavailable and emits `WATCH / VOLUME_GATE_FAILED` only when price is inside `entry_low..entry_high`, so replay cannot fake a VWAP from bars outside the entry range.
+- VWAP-calculable bars with insufficient amount also keep `VOLUME_GATE_FAILED` inside `entry_low..entry_high`, so the volume gate cannot create watch alerts above the entry zone.
+- VWAP-confirming observation also stays inside `entry_low..entry_high`, so confirmation-window WATCH alerts cannot appear in the chased zone.
+- Zero-volume alert snapshots preserve `continuous_vwap = null`, so replay evidence cannot invent a VWAP after the rule decision is made.
+- A pre-buy `stop_price` break is an entry cancellation and does not create sell semantics.
+- Pre-buy structural cancellation takes priority over VWAP/volume observation, so a no-volume bar below `stop_price` cannot be downgraded to `VOLUME_GATE_FAILED`.
+- `ENTRY_CANCELLED` locks are terminal for later buy-side alerts, while `BUY_TRIGGER` locks still allow later cancellation or risk alerts.
+- Observation alerts `WATCH` and `BUY_READY` do not write `intraday_alert_locks`, so future cooldown logic remains separate from terminal buy/cancel locks.
+- Terminal alert locks preserve the source alert `created_at` timestamp and `reason_code` metadata, so replay audit rows remain joinable back to the exact alert decision.
+- New terminal alert locks start with `reset_count = 0` and `reset_reason = NULL`, keeping future reset semantics explicit instead of silently pre-consuming resets.
+- Alert-lock migration drops legacy rows missing required composite-key fields, so older local databases cannot carry unaddressable locks into the rebuilt table.
+- Alert-lock migration also drops legacy rows with blank or whitespace-only composite-key fields, so `NOT NULL` cannot preserve unaddressable locks.
+- Replay groups bars by stock and evaluates each group by ascending `quote_time`, so CSV row order cannot change same-stock alert outcomes.
+- Replay rejects duplicate same-stock same-`quote_time` rows before alert evaluation, so one replay point cannot contain two conflicting market snapshots.
+- Core plan prices `entry_low`, `entry_high`, `breakout_price`, and `stop_price` must all be present before alert evaluation; missing values disable the plan with `PLAN_INVALID`.
+- Plan execution, risk, pre-close, and volume profile numeric fields must be finite, so malformed `Infinity` values cannot bypass missing-pre-close or risk gates.
+- Core plan prices must be internally consistent as `stop_price < entry_low <= breakout_price <= entry_high`; impossible relationships disable the plan before alert evaluation.
+- Planned stop distance is enforced as `(entry_low - stop_price) / entry_low <= max_stop_distance`, so `max_stop_distance` is a real risk gate.
+- `max_position_cash` and `max_loss` are enforced as positive values, and planned stop loss must not exceed `max_loss`, so risk budget fields are real gates.
+- `plan_json` must parse as a JSON object, preserving structured machine truth instead of free-text execution data.
+- Missing or `NULL` `plan_json` is parsed as an invalid machine plan, so replay disables the plan instead of crashing during validation.
+- Malformed replay `quote_time` values are rejected during CSV parsing, so invalid rows still produce failed-run records and reports.
+- Replay `quote_time` and plan `vwap_active_after` are validated as zero-padded `HH:MM:SS`; missing or malformed activation windows disable the plan before rules run.
+- The replay CSV contract encodes the same zero-padded `quote_time` pattern, so contract consumers cannot accept `9:36:00` while the runtime rejects it.
+- The replay CSV contract's `required` field list matches runtime `REQUIRED_REPLAY_COLUMNS`, so `volume_since_open` and other VWAP inputs cannot drift between Spec Kit and the parser.
+- Replay `alert_count` and report lines are derived from alerts inserted into `intraday_alerts`, not duplicate in-memory rule emissions.
+- Replay report alert-line coverage verifies successful reports include each inserted alert's time, stock, alert type, and `reason_code`, preserving auditability without querying SQLite.
+- `intraday_alerts` enforces non-null replay alert core fields, including `reason_code`, so later alert statistics cannot inherit blank classification keys.
+- Alert migration drops legacy rows missing required `reason_code`, so older local databases cannot carry unclassifiable alerts into the rebuilt table.
+- Alert migration also drops legacy rows with blank or whitespace-only `reason_code`, so `NOT NULL` cannot preserve unclassifiable alert rows.
+- Alert migration drops legacy rows with blank or whitespace-only core alert text fields, so rebuilt alert rows remain addressable by date, stock, strategy, time, type, and reason.
+- `intraday_alerts.plan_json` preserves the triggering machine plan payload, so alert-only replay review can see the structured plan that produced the decision.
+- `intraday_alerts.state_before` and `state_after` preserve rule-intent transitions, so stored alerts keep the B-class discipline state flow instead of only the final alert type.
+- `intraday_alerts.severity`, `title`, and `message` preserve readable rule metadata, so alert rows remain useful without reconstructing intent from code.
+- Non-buy alerts preserve readable metadata for `WATCH`, `BUY_READY`, and `ENTRY_CANCELLED`, so replay review does not depend on reconstructing intent from code.
+- `intraday_alerts.rule_id` stays paired with `reason_code`, so rule audit queries and reason-code statistics cannot drift apart.
+- `intraday_alerts.created_at` remains a UTC audit timestamp separate from replay `alert_time`, so storage time cannot be confused with market time.
+- Replay rejects negative cumulative amount or volume values during CSV parsing, matching the replay CSV contract.
+- Replay rejects positive-volume rows with zero cumulative amount, so invalid inputs cannot compute `continuous_vwap = 0` and bypass VWAP discipline.
+- Replay rejects same-stock cumulative amount or volume decreases after sorting by `quote_time`, preserving VWAP reproducibility for unsorted but valid input files.
+- Replay rejects duplicate same-stock same-`quote_time` rows, preserving the one-row-per-market-snapshot replay contract.
+- Replay rejects non-positive price fields and rows where `price` falls outside `bar_low..bar_high`, so alert snapshots cannot preserve impossible bar data.
+- Replay rejects malformed CSV `trade_date` before date matching, so malformed dates cannot pass merely because the command date is malformed the same way.
+- Replay rejects malformed command `--date` after CSV row parsing and before date matching, so no-plan header-only inputs cannot become successful replay runs while malformed CSV dates still report row errors.
+- Replay reports malformed command `--date` before file-not-found when the input file is missing, while preserving malformed CSV row errors when rows are available.
+- Replay converts unreadable input paths such as directories into `REPLAY_CSV_UNREADABLE`, preserving failed-run records and report artifacts instead of escaping as filesystem exceptions.
+- Replay rejects blank or whitespace-only CSV `ts_code` before strategy evaluation, so unnamed rows cannot silently disappear from symbol grouping.
+- Replay rejects short CSV rows with missing required cells through the recorded failed-run path, so malformed rows cannot escape as field-access exceptions.
+- Replay rejects long CSV rows with unnamed extra cells through the recorded failed-run path, so trailing malformed input cannot be silently ignored.
+- Replay accepts named extra CSV columns, matching the contract's `additionalProperties: true` while still rejecting unnamed trailing cells.
+- Replay rejects header-only CSV files as `REPLAY_CSV_NO_ROWS` when B-class plans exist, while preserving successful no-plan reports for empty replay inputs.
+- Replay skips missing input CSV files when no B-class plans exist and the command date is valid, while still producing replay-run metadata and a no-plan report.
+- Replay keeps existing malformed or unreadable input paths on the normal failed-run path even when no B-class plans exist.
+- Replay disables invalid same-date B-class plans before no-row or missing-symbol failure exits after CSV structure validation succeeds, so plan defects remain visible even when replay cannot evaluate bars.
+- Replay rejects CSV files missing active B-class plan symbols, so a run cannot look successful while evaluating only unrelated stocks.
+- Replay accepts UTF-8 BOM headers, so Windows or spreadsheet-exported CSV files do not appear to be missing `trade_date`.
+- Replay rejects duplicate or blank CSV header names, so malformed cells cannot be hidden by column overwrites or unnamed columns.
+- Replay rejects non-finite numeric CSV values before strategy evaluation, so `NaN` or `Infinity` cannot leak into VWAP or alert snapshots.
+- Replay loads only `B_CAPACITY_LEADER` plans, so A-class or future strategy rows cannot receive B-class replay alerts or inflate `plan_count`.
+- Latest `candidate_snapshots` now carry structured plan prices and `plan_json`; `intraday_plans` preserves those values instead of recalculating execution prices from daily bars when a snapshot run exists.
+- Snapshot prose inside `plan_json` may mention prices, but materialization keeps execution fields from structured snapshot columns instead of parsing those free-text numbers.
+- Candidate run Markdown report paths may point to files with conflicting prices, but materialization still ignores Markdown and keeps execution fields from structured snapshot columns.
+- Candidate-run timestamp ties resolve by descending `run_id`, so `candidates_latest` cannot feed duplicate same-stock plans into materialization.
+- `init_db` migrates existing `candidate_snapshots` tables with structured plan columns, so older local databases can persist the latest machine plan handoff.
+- `init_db` migrates early intraday tables with Replay MVP columns, so older local databases can accept full structured plans and replay run metadata.
+- `init_db` rebuilds early `intraday_plans` tables when their composite primary key or key-column `NOT NULL` constraints are missing, so replay keeps one executable plan per trade date, stock, and strategy.
+- Intraday-plan migration drops legacy rows missing required key fields, so older local databases cannot carry unaddressable machine plans into the rebuilt table.
+- Intraday-plan migration also drops legacy rows with blank or whitespace-only composite-key fields, so `NOT NULL` cannot preserve unaddressable machine plans.
+- `init_db` migrates early intraday output tables with alert, lock, and replay-run columns plus primary-key constraints and non-null alert-lock keys, so older local databases can complete replay writes and preserve stable query surfaces.
+- Schema migration coverage now directly asserts `intraday_alerts`, `intraday_alert_locks`, and `intraday_replay_runs` primary-key columns after upgrading early output tables, so FR-057 cannot regress to writable-but-duplicate-prone tables.
+- Snapshot-sourced plans do not synthesize fixture defaults for missing `max_position_cash` or `max_loss`, so missing risk budgets remain visible and invalid.
+- Snapshot-sourced plans do not synthesize `{}` for missing `plan_json`, so missing machine plans remain visible and invalid.
+- Malformed snapshot numeric plan fields materialize as invalid plan values, so a bad structured handoff is reported through replay validation instead of crashing before replay starts.
+- Candidate snapshot `plan_json.max_loss` mirrors the numeric structured risk budget, while narrative loss text uses `max_loss_text`, so machine replay does not read prose from the `max_loss` key.
+- A trade date with any `candidate_runs` row treats latest candidate snapshots as authoritative, so an empty B-class snapshot materializes zero plans and cannot fall back to manual or stale `candidates` rows.
+- Replay clears same-date B-class alerts and alert locks before CSV validation, so failed runs cannot leave stale B-class `BUY_TRIGGER` rows while reporting `FAILED` and `alert_count=0`.
+- Failed replay runs still count same-date B-class plans in `plan_count`, so reproducibility metadata is not collapsed to zero merely because CSV validation failed.
+- Replay-run migration drops legacy rows with blank or whitespace-only required text audit fields, while preserving empty `input_sha256` for unreadable-input failure records.
+- Replay-run migration also drops legacy rows with statuses outside `SUCCESS / FAILED`, so status statistics remain closed.
+- Post-`BUY_TRIGGER` stop breaks are classified before VWAP breaks, so `ENTRY_CANCELLED_PRICE_OUT_OF_RANGE` and `ENTRY_CANCELLED_VWAP_BREAK` remain separate tuning statistics.
+- `ENTRY_CANCELLED` preserves distinct state transitions for pre-buy cancellation and post-buy risk invalidation, keeping MVP cancel semantics separate from sell semantics.
+- Observation alerts preserve state flow: `WATCH` stays in `OPEN_OBSERVING`, while `BUY_READY` advances to `BUY_READY` without creating terminal lock semantics.
+- A replay path that first writes `BUY_TRIGGER` and later breaks `stop_price` writes `ENTRY_CANCELLED` only; `SELL_TRIGGER` remains absent from stored alerts.
+- Pre-buy stop breaks are evaluated before the `vwap_active_after` gate, so a plan already structurally invalid before VWAP observation cannot later trigger a buy.
+- Detailed task phases through Phase 82 are archived in `tasks-history.md`, while `tasks.md` remains the compact current Spec Kit entrypoint to keep future iteration bounded without losing traceability.
+- B-class plan materialization refreshes only same-date `B_CAPACITY_LEADER` rows, so running the MVP handoff cannot delete non-B strategy plans owned by later specs.
+- B-class replay clears only same-date `B_CAPACITY_LEADER` alert and lock rows, so a replay run cannot delete non-B alert output owned by later specs.
+- Spec integrity coverage now checks contiguous acceptance-scenario numbering, so duplicated or skipped scenario ids cannot quietly weaken the Spec Kit task handoff.
+- Spec integrity coverage also requires FR and SC ids to stay contiguous, and mutation verification showed a skipped requirement id fails the guard.
+- Alert snapshot coverage now locks `continuous_vwap` to `amount_since_open / volume_since_open`, and mutation verification showed a `price`-based regression prevents the replay alert path.
+- `BUY_READY` duplicate coverage now matches WATCH duplicate coverage, so repeated in-range pre-breakout bars cannot inflate stored alerts, `alert_count`, or replay report lines.
+- Replay CSV contract coverage now locks runtime numeric lower bounds and named extra-column allowance, so external schema consumers cannot drift wider or narrower than the parser on those fields.
+- Replay CSV contract coverage now locks the positive-volume/positive-amount rule, so schema consumers cannot accept rows that runtime rejects to protect VWAP calculation.
+- Intraday MVP boundary coverage now scans `src/trading_x/intraday*.py` for deferred sell, A-class, and realtime-provider tokens, so the Replay MVP runtime cannot quietly absorb later specification lines.
+- Intraday MVP boundary coverage now also blocks abstract realtime provider and live-watch entrypoint tokens, so a later `IntradayDataProvider` handoff cannot slip into the Replay MVP runtime before its own spec line.
+- Intraday MVP boundary coverage now also blocks sell-warning, T+1, available-shares, entry-date, and sell-guidance tokens, so positions-era sell semantics cannot slip into the Replay MVP runtime before a positions spec exists.
+- Replay now disables B-class plans whose `source_report_date` does not match `trade_date`, so stale or manually mismatched execution snapshots cannot silently trigger alerts for the wrong report date.
+- Replay now disables B-class plans with blank `source_candidate_id`, so unsourced manual rows cannot masquerade as machine execution snapshots.
+- Replay now disables B-class plans with blank `system_version`, so producer-version-less snapshots cannot silently execute.
+- Replay now disables B-class plans with blank `created_at`, so snapshots without creation audit metadata cannot silently execute.
+- Replay now disables B-class plans with blank `pre_close_source`, so official pre-close values without source provenance cannot silently execute.
+- Replay now disables B-class plans with blank `ts_code`, so malformed plan identity cannot be misreported as a missing replay CSV symbol.
+- Replay now disables B-class plans with blank `name`, so machine execution snapshots remain auditable instead of emitting unnamed plan output.
+- Replay now keeps zero-volume bars below `entry_low` silent unless they break `stop_price`, so low-activity idle bars cannot inflate WATCH statistics.
+- Replay now keeps zero-volume bars above `entry_high` silent, so chased bars outside the entry zone cannot inflate WATCH statistics.
+- Replay now keeps VWAP-calculable but amount-threshold-failing bars above `entry_high` silent, so `VOLUME_GATE_FAILED` has one consistent entry-range boundary.
+- Replay now keeps VWAP-confirming bars above `entry_high` silent, so `B_VWAP_CONFIRMING` has the same entry-range boundary as buy-ready and trigger logic.
+- Replay now requires the volume gate for VWAP confirmation timing, so `BUY_TRIGGER` cannot inherit stand-up time from earlier under-threshold bars.
+- Replay now requires the entry range for VWAP confirmation timing, so `BUY_TRIGGER` cannot inherit stand-up time from earlier chased-zone bars.
+- CLI default-input coverage now verifies `trading_x replay --date YYYYMMDD` reads `data/replay/<date>.csv` when `--input` is omitted.
+- CLI plan-materialize coverage now verifies `trading_x plans materialize --date YYYYMMDD` calls the structured materializer and prints the resulting plan count.
+- CLI boundary coverage now verifies `trading_x watch` is still unknown, so the Replay MVP command surface cannot quietly grow into live watch.
+
+## Notes
+
+- `PreCloseProvider`, `VWAPEngine`, and `VolumeGate` are implemented as minimal replay components/functions for MVP, not as long-lived plugin abstractions.
+- `intraday_plans` may be hand-seeded in tests, and direct `candidates` materialization remains a fixture fallback only when no report run exists. Production direction is materialization from latest structured candidate/report snapshots.

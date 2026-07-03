@@ -1,0 +1,16 @@
+.venv/
+.env
+.pytest_cache/
+__pycache__/
+*.py[cod]
+# Local SQLite databases and generated market data stay on this machine.
+data/*
+!data/
+!data/theme_members.csv
+
+# Daily reports are generated outputs.
+reports/
+
+.ruff_cache/
+!data/replay/
+!data/replay/*.csv

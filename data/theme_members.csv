@@ -1,0 +1,10 @@
+ts_code,name,industry,theme_primary,theme_tags,theme_tier,theme_weight,theme_source,confidence,updated_at,notes
+300124.SZ,汇川技术,自动化设备,机器人,机器人;工业母机;智能制造,CORE,1.0,manual,MEDIUM,2026-06-30,核心容量标的
+002050.SZ,三花智控,汽车零部件,机器人,机器人;热管理;特斯拉链,CORE,1.0,manual,MEDIUM,2026-06-30,机器人执行器相关
+002747.SZ,埃斯顿,机器人,机器人,机器人;工业机器人;减速器,CORE,1.0,manual,MEDIUM,2026-06-30,机器人方向辨识度较高
+002230.SZ,科大讯飞,软件开发,AI应用,AI应用;大模型;教育AI,CORE,1.0,manual,MEDIUM,2026-06-30,AI应用容量标的
+000021.SZ,深科技,电子制造,半导体,半导体;存储芯片;电子制造,IMPORTANT,0.7,manual,MEDIUM,2026-06-30,20260629候选补充
+000988.SZ,华工科技,光通信设备,AI算力,AI算力;光通信;激光装备,IMPORTANT,0.7,manual,MEDIUM,2026-06-30,20260629候选补充
+002409.SZ,雅克科技,电子化学品,半导体材料,半导体材料;电子化学品;光刻胶,IMPORTANT,0.7,manual,MEDIUM,2026-06-30,20260629候选补充
+600378.SH,昊华科技,化工新材料,半导体材料,半导体材料;电子特气;化工新材料,IMPORTANT,0.7,manual,MEDIUM,2026-06-30,20260629候选补充
+603650.SH,彤程新材,电子化学品,光刻胶,光刻胶;半导体材料;电子化学品,IMPORTANT,0.7,manual,MEDIUM,2026-06-30,20260629候选补充
