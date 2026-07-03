@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Run type check
+        run: uv run pyright
+
+      - name: Run lint
+        run: uv run ruff check
+
+      - name: Run replay fixtures
+        run: |
+          uv run python -m trading_x replay --date 20260630 --input data/replay/20260630.csv
+          uv run python -m trading_x replay --date 20260701 --input data/replay/20260701.csv
+          uv run python -m trading_x replay --date 20260702 --input data/replay/20260702.csv
+          uv run python -m trading_x replay --date 20260703 --input data/replay/20260703.csv
