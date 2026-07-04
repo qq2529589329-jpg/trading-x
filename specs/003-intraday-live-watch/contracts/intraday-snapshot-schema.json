@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trading-x.local/contracts/intraday-snapshot-schema.json",
+  "title": "Intraday Provider Snapshot",
+  "type": "object",
+  "required": [
+    "trade_date",
+    "quote_time",
+    "ts_code",
+    "price",
+    "amount_since_open",
+    "volume_since_open",
+    "bar_high",
+    "bar_low"
+  ],
+  "properties": {
+    "trade_date": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "quote_time": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]:[0-5][0-9]$" },
+    "ts_code": { "type": "string", "minLength": 1 },
+    "price": { "type": "number", "exclusiveMinimum": 0 },
+    "amount_since_open": { "type": "number", "minimum": 0 },
+    "volume_since_open": { "type": "number", "minimum": 0 },
+    "bar_high": { "type": "number", "exclusiveMinimum": 0 },
+    "bar_low": { "type": "number", "exclusiveMinimum": 0 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "volume_since_open": { "exclusiveMinimum": 0 } } },
+      "then": { "properties": { "amount_since_open": { "exclusiveMinimum": 0 } } }
+    }
+  ],
+  "additionalProperties": true
+}
