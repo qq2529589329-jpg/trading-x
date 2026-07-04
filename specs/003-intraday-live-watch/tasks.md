@@ -39,4 +39,4 @@
 - [x] T019 Run `uv run pyright`.
 - [x] T020 Run `uv run ruff check`.
 - [x] T021 Run all four replay fixture commands from CI.
-- [ ] T022 Confirm GitHub Actions remains green after the implementation commit.
+- [x] T022 Confirm GitHub Actions remains green after the implementation commit.
