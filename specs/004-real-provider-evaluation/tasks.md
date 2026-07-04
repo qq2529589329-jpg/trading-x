@@ -6,11 +6,11 @@
 
 ## Phase 1: Contract And Validation
 
-- [ ] T001 Add tests that valid provider sample rows satisfy `provider-snapshot-sample-schema.json`.
-- [ ] T002 Add tests that missing `volume_since_open` fails validation.
-- [ ] T003 Add tests that missing or empty `quote_time` fails validation.
-- [ ] T004 Implement the minimal provider sample validation helper.
-- [ ] T005 Run `uv run pytest tests/test_provider_evaluation_contract.py -q`.
+- [x] T001 Add tests that valid provider sample rows satisfy `provider-snapshot-sample-schema.json`.
+- [x] T002 Add tests that missing `volume_since_open` fails validation.
+- [x] T003 Add tests that missing or empty `quote_time` fails validation.
+- [x] T004 Implement the minimal provider sample validation helper.
+- [x] T005 Run `uv run pytest tests/test_provider_evaluation_contract.py -q`.
 
 ## Phase 2: Evaluation Decision Rules
 
