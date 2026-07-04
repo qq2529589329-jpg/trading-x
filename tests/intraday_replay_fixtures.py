@@ -9,6 +9,7 @@ from trading_x.types import CandidateGrade, Confidence, StrategyType
 class PlanFixture:
     official_pre_close: float
     volume_min_abs_amount: float
+    trade_date: str = "20260630"
     stop_price: float = 9.8
     volume_gate_enabled: bool = True
     vwap_above_confirm_seconds: int = 0
@@ -88,7 +89,7 @@ def insert_plan(db_path: Path, fixture: PlanFixture) -> None:
             "system_version, created_at"
             ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                "20260630",
+                fixture.trade_date,
                 "300001.SZ",
                 "容量龙",
                 fixture.strategy_type,
@@ -115,7 +116,7 @@ def insert_plan(db_path: Path, fixture: PlanFixture) -> None:
                 Confidence.MEDIUM,
                 88.0,
                 "300001.SZ:B_CAPACITY_LEADER",
-                "20260630",
+                fixture.trade_date,
                 "{}",
                 "test",
                 "2026-06-30T09:00:00",

@@ -14,7 +14,6 @@ def test_intraday_replay_mvp_runtime_keeps_deferred_boundaries() -> None:
         "mootdx",
         "tencent",
         "Tencent",
-        "IntradayDataProvider",
         "realtime",
         "real_time",
         "live_watch",
@@ -39,7 +38,7 @@ def test_intraday_replay_mvp_runtime_keeps_deferred_boundaries() -> None:
     assert violations == []
 
 
-def test_intraday_replay_mvp_cli_does_not_expose_live_watch(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_intraday_watch_cli_requires_date(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["trading_x", "watch"])
 
     with pytest.raises(SystemExit) as exc_info:

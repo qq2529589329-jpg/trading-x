@@ -13,6 +13,8 @@ from trading_x.config import load_tushare_token
 from trading_x.data_status import latest_complete_trade_date, p0_incomplete_reason
 from trading_x.db import init_db
 from trading_x.intraday import materialize_intraday_plans, run_replay
+from trading_x.intraday_replay_csv import load_replay_bars
+from trading_x.intraday_watch import FakeIntradayProvider, run_fake_watch
 from trading_x.reports import ReportSnapshot, generate_report
 from trading_x.theme_cli import configure_theme_cli, handle_theme_command
 from trading_x.theme_models import ThemeCoverage
@@ -54,6 +56,9 @@ def main() -> int:
     replay_parser = subparsers.add_parser("replay")
     replay_parser.add_argument("--date", required=True)
     replay_parser.add_argument("--input", type=Path)
+    watch_parser = subparsers.add_parser("watch")
+    watch_parser.add_argument("--date", required=True)
+    watch_parser.add_argument("--input", type=Path)
     plans_parser = subparsers.add_parser("plans")
     plans_subparsers = plans_parser.add_subparsers(dest="plans_command", required=True)
     materialize_parser = plans_subparsers.add_parser("materialize")
@@ -110,6 +115,17 @@ def main() -> int:
         if result.error_message:
             print(result.error_message)
         return 0 if result.status == "SUCCESS" else 1
+    if args.command == "watch":
+        init_db(args.db)
+        input_path = args.input or Path("data") / "replay" / f"{args.date}.csv"
+        bars, error = load_replay_bars(input_path, args.date)
+        if error is not None:
+            print(f"watch=FAILED {args.date} alerts=0")
+            print(error)
+            return 1
+        alerts = run_fake_watch(args.db, args.date, FakeIntradayProvider(tuple(bars)))
+        print(f"watch=SUCCESS {args.date} alerts={len(alerts)}")
+        return 0
     if args.command == "plans":
         init_db(args.db)
         count = materialize_intraday_plans(args.db, args.date)

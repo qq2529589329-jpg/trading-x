@@ -16,7 +16,7 @@ def load_replay_bars(input_path: Path, trade_date: str) -> tuple[list[ReplayBar]
             missing = sorted(REQUIRED_REPLAY_COLUMNS - set(fieldnames))
             if missing:
                 return [], "REPLAY_CSV_MISSING_REQUIRED_COLUMNS: " + ",".join(missing)
-            rows = [_bar_from_row(row) for row in reader]
+            rows = [bar_from_replay_row(row) for row in reader]
     except FileNotFoundError:
         if len(trade_date) != 8 or not trade_date.isdigit():
             return [], "REPLAY_DATE_INVALID"
@@ -48,7 +48,7 @@ def load_replay_bars(input_path: Path, trade_date: str) -> tuple[list[ReplayBar]
     return rows, None
 
 
-def _bar_from_row(row: Mapping[str, str]) -> ReplayBar:
+def bar_from_replay_row(row: Mapping[str, str]) -> ReplayBar:
     if None in row:
         raise ValueError
     if any(row[column] is None for column in REQUIRED_REPLAY_COLUMNS):
