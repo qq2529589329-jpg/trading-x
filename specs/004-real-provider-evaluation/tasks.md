@@ -1,0 +1,43 @@
+# Tasks: Real Provider Evaluation
+
+**Input**: `spec.md`, `plan.md`, `data-model.md`, `contracts/provider-snapshot-sample-schema.json`
+
+**Tests**: Required before production code.
+
+## Phase 1: Contract And Validation
+
+- [ ] T001 Add tests that valid provider sample rows satisfy `provider-snapshot-sample-schema.json`.
+- [ ] T002 Add tests that missing `volume_since_open` fails validation.
+- [ ] T003 Add tests that missing or empty `quote_time` fails validation.
+- [ ] T004 Implement the minimal provider sample validation helper.
+- [ ] T005 Run `uv run pytest tests/test_provider_evaluation_contract.py -q`.
+
+## Phase 2: Evaluation Decision Rules
+
+- [ ] T006 Add tests for `PROVIDER_VOLUME_MISSING` producing `disabled_for_buy_trigger`.
+- [ ] T007 Add tests for `PROVIDER_TIMESTAMP_UNTRUSTED` producing `disabled_for_live_watch`.
+- [ ] T008 Add tests for partial coverage producing `PROVIDER_COVERAGE_PARTIAL`.
+- [ ] T009 Add tests that unknown compliance status keeps the source disabled.
+- [ ] T010 Implement the minimal evaluation decision function.
+
+## Phase 3: Evaluation Artifacts
+
+- [ ] T011 Add tests that evaluation writes JSON/Markdown artifacts only.
+- [ ] T012 Add tests that evaluation does not write `intraday_alerts`, `intraday_alert_locks`, or `intraday_plans`.
+- [ ] T013 Implement the minimal evaluation report writer.
+- [ ] T014 Run `uv run pytest tests/test_provider_evaluation.py -q`.
+
+## Phase 4: Optional Source Adapters Kept Disabled
+
+- [ ] T015 Add a disabled mootdx adapter boundary with tests that it is never used by `watch`.
+- [ ] T016 Add a disabled Tencent snapshot adapter boundary with tests that it is never used by `watch`.
+- [ ] T017 Document the command required to run evaluation when network/source access is available.
+
+## Phase 5: Full Verification
+
+- [ ] T018 Run `uv run pytest`.
+- [ ] T019 Run `uv run pyright`.
+- [ ] T020 Run `uv run ruff check`.
+- [ ] T021 Run all replay fixture commands from CI.
+- [ ] T022 Confirm fake watch parity tests still pass.
+- [ ] T023 Confirm GitHub Actions remains green after the implementation commit.

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Provider Snapshot Sample",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "trade_date",
+    "quote_time",
+    "ts_code",
+    "price",
+    "amount_since_open",
+    "volume_since_open",
+    "bar_high",
+    "bar_low",
+    "source",
+    "latency_ms",
+    "validation_status",
+    "reason_codes"
+  ],
+  "properties": {
+    "trade_date": {
+      "type": "string",
+      "pattern": "^[0-9]{8}$"
+    },
+    "quote_time": {
+      "type": "string",
+      "minLength": 5
+    },
+    "ts_code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "price": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "amount_since_open": {
+      "type": "number",
+      "minimum": 0
+    },
+    "volume_since_open": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "bar_high": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "bar_low": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "previous_close": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "limit_up": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "limit_down": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "source": {
+      "type": "string",
+      "enum": ["mootdx", "tencent_snapshot"]
+    },
+    "latency_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "raw_payload_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "validation_status": {
+      "type": "string",
+      "enum": ["accepted", "rejected"]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
