@@ -22,10 +22,10 @@
 
 ## Phase 3: Evaluation Artifacts
 
-- [ ] T011 Add tests that evaluation writes JSON/Markdown artifacts only.
-- [ ] T012 Add tests that evaluation does not write `intraday_alerts`, `intraday_alert_locks`, or `intraday_plans`.
-- [ ] T013 Implement the minimal evaluation report writer.
-- [ ] T014 Run `uv run pytest tests/test_provider_evaluation.py -q`.
+- [x] T011 Add tests that evaluation writes JSON/Markdown artifacts only.
+- [x] T012 Add tests that evaluation does not write `intraday_alerts`, `intraday_alert_locks`, or `intraday_plans`.
+- [x] T013 Implement the minimal evaluation report writer.
+- [x] T014 Run `uv run pytest tests/test_provider_evaluation.py -q`.
 
 ## Phase 4: Optional Source Adapters Kept Disabled
 
