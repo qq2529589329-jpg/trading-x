@@ -41,3 +41,10 @@
 - [x] T021 Run all replay fixture commands from CI.
 - [x] T022 Confirm fake watch parity tests still pass.
 - [x] T023 Confirm GitHub Actions remains green after the implementation commit.
+
+## Phase 6: CLI Evaluation Surface
+
+- [x] T024 Add CLI tests for `provider-evaluate` normalized sample files.
+- [x] T025 Implement `provider-evaluate` to write evaluation artifacts only.
+- [x] T026 Require `--sample` in the runbook so evaluation stays offline and explicit.
+- [x] T027 Run provider evaluation CLI, provider decision, pyright, and ruff checks.

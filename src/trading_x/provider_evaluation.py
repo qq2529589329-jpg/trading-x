@@ -2,6 +2,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final, TypeAlias
+import json
 import math
 import re
 
@@ -67,6 +68,38 @@ class ProviderSnapshotSample:
     limit_down: float | None = None
     raw_payload_sha256: str | None = None
 
+
+def parse_provider_sample_file_text(text: str) -> tuple[ProviderSnapshotSample, ...]:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ProviderSampleInputError("PROVIDER_SAMPLE_INVALID_JSON") from exc
+    if not isinstance(payload, list):
+        raise ProviderSampleInputError("PROVIDER_SAMPLE_FILE_NOT_ARRAY")
+    if not payload:
+        raise ProviderSampleInputError("PROVIDER_SAMPLE_FILE_EMPTY")
+    return tuple(parse_provider_snapshot_sample(_sample_payload(item)) for item in payload)
+
+
+def _sample_payload(item) -> ProviderSamplePayload:
+    if not isinstance(item, Mapping):
+        raise ProviderSampleInputError("PROVIDER_SAMPLE_ROW_NOT_OBJECT")
+    row: dict[str, ProviderSampleValue] = {}
+    for key, value in item.items():
+        if not isinstance(key, str):
+            raise ProviderSampleInputError("PROVIDER_SAMPLE_INVALID_FIELD_NAME")
+        row[key] = _sample_value(value)
+    return row
+
+
+def _sample_value(value) -> ProviderSampleValue:
+    if isinstance(value, bool):
+        raise ProviderSampleInputError("PROVIDER_SAMPLE_INVALID_FIELD_VALUE")
+    if isinstance(value, str | int | float):
+        return value
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return tuple(value)
+    raise ProviderSampleInputError("PROVIDER_SAMPLE_INVALID_FIELD_VALUE")
 
 def parse_provider_snapshot_sample(row: ProviderSamplePayload) -> ProviderSnapshotSample:
     missing = sorted(REQUIRED_PROVIDER_SAMPLE_FIELDS - set(row))

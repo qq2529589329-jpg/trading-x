@@ -15,6 +15,7 @@ from trading_x.db import init_db
 from trading_x.intraday import materialize_intraday_plans, run_replay
 from trading_x.intraday_replay_csv import load_replay_bars
 from trading_x.intraday_watch import FakeIntradayProvider, run_fake_watch
+from trading_x.provider_eval_cli import configure_provider_evaluation_cli, handle_provider_evaluation_command
 from trading_x.reports import ReportSnapshot, generate_report
 from trading_x.theme_cli import configure_theme_cli, handle_theme_command
 from trading_x.theme_models import ThemeCoverage
@@ -59,6 +60,8 @@ def main() -> int:
     watch_parser = subparsers.add_parser("watch")
     watch_parser.add_argument("--date", required=True)
     watch_parser.add_argument("--input", type=Path)
+    provider_parser = subparsers.add_parser("provider-evaluate")
+    configure_provider_evaluation_cli(provider_parser)
     plans_parser = subparsers.add_parser("plans")
     plans_subparsers = plans_parser.add_subparsers(dest="plans_command", required=True)
     materialize_parser = plans_subparsers.add_parser("materialize")
@@ -126,6 +129,8 @@ def main() -> int:
         alerts = run_fake_watch(args.db, args.date, FakeIntradayProvider(tuple(bars)))
         print(f"watch=SUCCESS {args.date} alerts={len(alerts)}")
         return 0
+    if args.command == "provider-evaluate":
+        return handle_provider_evaluation_command(args)
     if args.command == "plans":
         init_db(args.db)
         count = materialize_intraday_plans(args.db, args.date)
