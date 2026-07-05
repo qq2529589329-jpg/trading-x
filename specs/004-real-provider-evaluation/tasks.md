@@ -35,9 +35,9 @@
 
 ## Phase 5: Full Verification
 
-- [ ] T018 Run `uv run pytest`.
-- [ ] T019 Run `uv run pyright`.
-- [ ] T020 Run `uv run ruff check`.
-- [ ] T021 Run all replay fixture commands from CI.
-- [ ] T022 Confirm fake watch parity tests still pass.
-- [ ] T023 Confirm GitHub Actions remains green after the implementation commit.
+- [x] T018 Run `uv run pytest`.
+- [x] T019 Run `uv run pyright`.
+- [x] T020 Run `uv run ruff check`.
+- [x] T021 Run all replay fixture commands from CI.
+- [x] T022 Confirm fake watch parity tests still pass.
+- [x] T023 Confirm GitHub Actions remains green after the implementation commit.
