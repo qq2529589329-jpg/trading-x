@@ -29,9 +29,9 @@
 
 ## Phase 4: Optional Source Adapters Kept Disabled
 
-- [ ] T015 Add a disabled mootdx adapter boundary with tests that it is never used by `watch`.
-- [ ] T016 Add a disabled Tencent snapshot adapter boundary with tests that it is never used by `watch`.
-- [ ] T017 Document the command required to run evaluation when network/source access is available.
+- [x] T015 Add a disabled mootdx adapter boundary with tests that it is never used by `watch`.
+- [x] T016 Add a disabled Tencent snapshot adapter boundary with tests that it is never used by `watch`.
+- [x] T017 Document the command required to run evaluation when network/source access is available.
 
 ## Phase 5: Full Verification
 
