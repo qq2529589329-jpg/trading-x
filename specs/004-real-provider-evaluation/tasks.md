@@ -14,11 +14,11 @@
 
 ## Phase 2: Evaluation Decision Rules
 
-- [ ] T006 Add tests for `PROVIDER_VOLUME_MISSING` producing `disabled_for_buy_trigger`.
-- [ ] T007 Add tests for `PROVIDER_TIMESTAMP_UNTRUSTED` producing `disabled_for_live_watch`.
-- [ ] T008 Add tests for partial coverage producing `PROVIDER_COVERAGE_PARTIAL`.
-- [ ] T009 Add tests that unknown compliance status keeps the source disabled.
-- [ ] T010 Implement the minimal evaluation decision function.
+- [x] T006 Add tests for `PROVIDER_VOLUME_MISSING` producing `disabled_for_buy_trigger`.
+- [x] T007 Add tests for `PROVIDER_TIMESTAMP_UNTRUSTED` producing `disabled_for_live_watch`.
+- [x] T008 Add tests for partial coverage producing `PROVIDER_COVERAGE_PARTIAL`.
+- [x] T009 Add tests that unknown compliance status keeps the source disabled.
+- [x] T010 Implement the minimal evaluation decision function.
 
 ## Phase 3: Evaluation Artifacts
 
