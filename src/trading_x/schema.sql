@@ -261,6 +261,32 @@ CREATE TABLE IF NOT EXISTS trade_logs (
     created_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS position_import_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trade_date TEXT NOT NULL,
+    input_file TEXT NOT NULL,
+    input_sha256 TEXT NOT NULL,
+    position_count INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT NOT NULL,
+    error_message TEXT
+);
+
+CREATE TABLE IF NOT EXISTS positions (
+    trade_date TEXT NOT NULL,
+    ts_code TEXT NOT NULL,
+    name TEXT,
+    total_shares REAL NOT NULL,
+    available_shares REAL NOT NULL,
+    avg_cost REAL NOT NULL,
+    market_value REAL NOT NULL,
+    source TEXT NOT NULL,
+    source_run_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (trade_date, ts_code)
+);
+
 CREATE TABLE IF NOT EXISTS post_close_activity (
     trade_date TEXT,
     ts_code TEXT,

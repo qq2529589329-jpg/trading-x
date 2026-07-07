@@ -14,11 +14,11 @@
 
 ## Phase 2: Position Import Persistence
 
-- [ ] T006 Add schema coverage for `positions` and `position_import_runs`.
-- [ ] T007 Add import coverage that records `input_file`, `input_sha256`, counts, status, and timing.
-- [ ] T008 Implement the minimal SQLite schema and import run writer.
-- [ ] T009 Add CLI coverage for `positions import --date YYYYMMDD --input PATH`.
-- [ ] T010 Run `uv run pytest tests/test_positions_import.py tests/test_cli.py -q`.
+- [x] T006 Add schema coverage for `positions` and `position_import_runs`.
+- [x] T007 Add import coverage that records `input_file`, `input_sha256`, counts, status, and timing.
+- [x] T008 Implement the minimal SQLite schema and import run writer.
+- [x] T009 Add CLI coverage for `positions import --date YYYYMMDD --input PATH`.
+- [x] T010 Run `uv run pytest tests/test_positions_contract.py tests/test_positions_import.py -q`.
 
 ## Phase 3: Sell-Side Alert Semantics
 

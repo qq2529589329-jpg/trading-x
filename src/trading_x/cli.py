@@ -17,6 +17,7 @@ from trading_x.db import init_db
 from trading_x.intraday import materialize_intraday_plans, run_replay
 from trading_x.intraday_replay_csv import load_replay_bars
 from trading_x.intraday_watch import FakeIntradayProvider, run_fake_watch
+from trading_x.positions_cli import configure_positions_cli, handle_positions_command
 from trading_x.provider_eval_cli import (
     configure_provider_evaluation_cli,
     configure_provider_replay_export_cli,
@@ -78,6 +79,8 @@ def main() -> int:
     configure_provider_replay_export_cli(provider_replay_parser)
     provider_template_parser = subparsers.add_parser("provider-sample-template")
     configure_provider_sample_template_cli(provider_template_parser)
+    positions_parser = subparsers.add_parser("positions")
+    configure_positions_cli(positions_parser)
     plans_parser = subparsers.add_parser("plans")
     plans_subparsers = plans_parser.add_subparsers(dest="plans_command", required=True)
     materialize_parser = plans_subparsers.add_parser("materialize")
@@ -166,6 +169,9 @@ def main() -> int:
     if args.command == "provider-sample-template":
         init_db(args.db)
         return handle_provider_sample_template_command(args.db, args)
+    if args.command == "positions":
+        init_db(args.db)
+        return handle_positions_command(args.db, args)
     if args.command == "plans":
         init_db(args.db)
         strategy_type = StrategyType(args.strategy)

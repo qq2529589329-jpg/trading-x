@@ -1,8 +1,12 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Final, TypeAlias
+import hashlib
 import json
 import math
+import sqlite3
 
 
 PositionLedgerValue: TypeAlias = str | int | float
@@ -39,6 +43,99 @@ class PositionLedgerRow:
     name: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PositionImportResult:
+    trade_date: str
+    input_file: str
+    input_sha256: str
+    position_count: int
+    status: str
+    run_id: int
+    started_at: str
+    ended_at: str
+    error_message: str | None = None
+
+
+def import_positions(db_path: Path, trade_date: str, input_path: Path) -> PositionImportResult:
+    started_at = _now_iso()
+    input_file = str(input_path)
+    input_sha256 = ""
+    positions: tuple[PositionLedgerRow, ...] = ()
+    status = "FAILED"
+    error_message: str | None = None
+
+    try:
+        input_bytes = input_path.read_bytes()
+        input_sha256 = hashlib.sha256(input_bytes).hexdigest()
+        positions = parse_position_ledger_file_text(input_bytes.decode("utf-8-sig"))
+        if any(position.trade_date != trade_date for position in positions):
+            raise PositionLedgerInputError("POSITION_LEDGER_TRADE_DATE_MISMATCH")
+        status = "SUCCESS"
+    except FileNotFoundError:
+        error_message = "POSITION_LEDGER_FILE_NOT_FOUND"
+    except OSError:
+        error_message = "POSITION_LEDGER_FILE_UNREADABLE"
+    except UnicodeDecodeError:
+        error_message = "POSITION_LEDGER_INVALID_ENCODING"
+    except PositionLedgerInputError as exc:
+        error_message = exc.reason_code
+
+    ended_at = _now_iso()
+    position_count = len(positions) if status == "SUCCESS" else 0
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.execute(
+            "INSERT INTO position_import_runs ("
+            "trade_date, input_file, input_sha256, position_count, status, started_at, ended_at, error_message"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                trade_date,
+                input_file,
+                input_sha256,
+                position_count,
+                status,
+                started_at,
+                ended_at,
+                error_message,
+            ),
+        )
+        run_id = int(cursor.lastrowid or 0)
+        if status == "SUCCESS":
+            conn.execute("DELETE FROM positions WHERE trade_date = ?", (trade_date,))
+            conn.executemany(
+                "INSERT INTO positions ("
+                "trade_date, ts_code, name, total_shares, available_shares, avg_cost, market_value, "
+                "source, source_run_id, created_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    (
+                        position.trade_date,
+                        position.ts_code,
+                        position.name,
+                        position.total_shares,
+                        position.available_shares,
+                        position.avg_cost,
+                        position.market_value,
+                        "json",
+                        run_id,
+                        ended_at,
+                    )
+                    for position in positions
+                ),
+            )
+
+    return PositionImportResult(
+        trade_date=trade_date,
+        input_file=input_file,
+        input_sha256=input_sha256,
+        position_count=position_count,
+        status=status,
+        run_id=run_id,
+        started_at=started_at,
+        ended_at=ended_at,
+        error_message=error_message,
+    )
+
+
 def parse_position_ledger_file_text(text: str) -> tuple[PositionLedgerRow, ...]:
     try:
         payload = json.loads(text)
@@ -54,7 +151,9 @@ def parse_position_ledger_file_text(text: str) -> tuple[PositionLedgerRow, ...]:
 def parse_position_ledger_row(row: PositionLedgerPayload) -> PositionLedgerRow:
     missing = sorted(REQUIRED_POSITION_LEDGER_FIELDS - set(row))
     if missing:
-        raise PositionLedgerInputError("POSITION_LEDGER_MISSING_REQUIRED_FIELDS: " + ",".join(missing))
+        raise PositionLedgerInputError(
+            "POSITION_LEDGER_MISSING_REQUIRED_FIELDS: " + ",".join(missing)
+        )
 
     trade_date = _required_text(row, "trade_date")
     if len(trade_date) != 8 or not trade_date.isdigit():
@@ -122,3 +221,7 @@ def _required_float(row: PositionLedgerPayload, field_name: str) -> float:
     if not math.isfinite(number):
         raise PositionLedgerInputError(f"POSITION_LEDGER_INVALID_NUMBER: {field_name}")
     return number
+
+
+def _now_iso() -> str:
+    return datetime.now(tz=UTC).isoformat()
