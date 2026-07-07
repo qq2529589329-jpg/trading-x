@@ -5,6 +5,7 @@ import sqlite3
 
 from trading_x.intraday_models import AlertIntent, IntradayAlert, IntradayPlan, ReplayBar, utc_now_text
 from trading_x.trading_rules import is_post_close_fixed_price_time
+from trading_x.sell_risk import PositionSnapshot, held_position_stop_alert
 from trading_x.types import StrategyType
 
 @dataclass(frozen=True, slots=True)
@@ -12,6 +13,7 @@ class RuleContext:
     plan: IntradayPlan
     bar: ReplayBar
     vwap_confirmed: bool
+    position: PositionSnapshot | None = None
 
 
 def alert_for_bar(
@@ -31,6 +33,9 @@ def alert_for_bar(
         )
     if _is_locked(conn, plan, "BUY_TRIGGER"):
         if bar.price <= plan.stop_price:
+            position_alert = held_position_stop_alert(plan, bar, context.position)
+            if position_alert is not None:
+                return position_alert
             return _alert(
                 plan,
                 bar,
@@ -56,6 +61,9 @@ def alert_for_bar(
             )
         return None
     if bar.price <= plan.stop_price:
+        position_alert = held_position_stop_alert(plan, bar, context.position)
+        if position_alert is not None:
+            return position_alert
         return _alert(
             plan,
             bar,

@@ -4,6 +4,7 @@ import sqlite3
 
 from trading_x.intraday_models import IntradayAlert, IntradayPlan, ReplayBar
 from trading_x.intraday_rules import RuleContext, alert_exists, alert_for_bar
+from trading_x.sell_risk import load_position_snapshots
 from trading_x.types import StrategyType
 
 
@@ -37,6 +38,7 @@ def evaluate_replay(
 ) -> list[IntradayAlert]:
     alerts: list[IntradayAlert] = []
     bars_by_symbol = _bars_by_symbol(bars)
+    positions = load_position_snapshots(conn, plans[0].trade_date) if plans else {}
     for plan in plans:
         above_vwap_since: int | None = None
         for bar in bars_by_symbol.get(plan.ts_code, []):
@@ -48,7 +50,7 @@ def evaluate_replay(
             else:
                 above_vwap_since = None
                 vwap_confirmed = plan.vwap_above_confirm_seconds <= 0
-            alert = alert_for_bar(conn, RuleContext(plan, bar, vwap_confirmed))
+            alert = alert_for_bar(conn, RuleContext(plan, bar, vwap_confirmed, positions.get(plan.ts_code)))
             if alert is not None and insert_alert(conn, alert):
                 alerts.append(alert)
     return alerts

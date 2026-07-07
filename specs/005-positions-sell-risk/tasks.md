@@ -22,11 +22,11 @@
 
 ## Phase 3: Sell-Side Alert Semantics
 
-- [ ] T011 Add replay coverage that no-position stop breaks still emit `ENTRY_CANCELLED`, not sell-side alerts.
-- [ ] T012 Add replay coverage that a held position stop break emits a sell-side alert.
-- [ ] T013 Add replay coverage that `available_shares = 0` emits risk-only T+1 warning, not executable sell trigger.
-- [ ] T014 Implement the minimal position-aware stop evaluation.
-- [ ] T015 Run `uv run pytest tests/test_intraday_replay.py tests/test_positions_sell_alerts.py -q`.
+- [x] T011 Add replay coverage that no-position stop breaks still emit `ENTRY_CANCELLED`, not sell-side alerts.
+- [x] T012 Add replay coverage that a held position stop break emits a sell-side alert.
+- [x] T013 Add replay coverage that `available_shares = 0` emits risk-only T+1 warning, not executable sell trigger.
+- [x] T014 Implement the minimal position-aware stop evaluation.
+- [x] T015 Run `uv run pytest tests/test_intraday_replay.py tests/test_positions_sell_alerts.py -q`.
 
 ## Phase 4: Locking And Regression
 
