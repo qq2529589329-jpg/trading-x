@@ -55,3 +55,9 @@
 - [x] T029 Implement `provider-export-replay` as an offline sample-to-replay CSV command.
 - [x] T030 Document the replay CSV export command in the runbook.
 - [x] T031 Run provider export CLI, provider evaluation CLI, replay fixture, pyright, and ruff checks.
+
+## Phase 8: Plan Symbol Export Surface
+
+- [x] T032 Add CLI coverage for `plans symbols` reading same-date same-strategy intraday plans.
+- [x] T033 Implement `plans symbols` for provider sample universe handoff.
+- [x] T034 Run full verification and a 20260706 A-class symbol export smoke test.

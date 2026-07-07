@@ -4,6 +4,17 @@
 
 Real provider adapters remain disabled in this specification. `watch` still uses fake replay-style input only.
 
+## Plan Symbol Export
+
+After materializing intraday plans, export the exact planned symbols for provider sampling:
+
+```powershell
+uv run python -m trading_x plans symbols --date YYYYMMDD --strategy A_SPACE_LEADER
+uv run python -m trading_x plans symbols --date YYYYMMDD --strategy B_CAPACITY_LEADER
+```
+
+Use this output as the provider sample universe. Do not type symbols from Markdown reports.
+
 ## Manual Evaluation Command
 
 Capture provider rows into a normalized JSON sample file that matches `contracts/provider-snapshot-sample-schema.json`, then run evaluation explicitly:
