@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Position Ledger",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "trade_date",
+      "ts_code",
+      "total_shares",
+      "available_shares",
+      "avg_cost",
+      "market_value"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "trade_date": {
+        "type": "string",
+        "pattern": "^[0-9]{8}$"
+      },
+      "ts_code": {
+        "type": "string",
+        "minLength": 1
+      },
+      "name": {
+        "type": "string"
+      },
+      "total_shares": {
+        "type": "number",
+        "minimum": 0
+      },
+      "available_shares": {
+        "type": "number",
+        "minimum": 0
+      },
+      "avg_cost": {
+        "type": "number",
+        "minimum": 0
+      },
+      "market_value": {
+        "type": "number",
+        "minimum": 0
+      }
+    }
+  }
+}
