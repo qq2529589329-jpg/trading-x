@@ -48,3 +48,10 @@
 - [x] T025 Implement `provider-evaluate` to write evaluation artifacts only.
 - [x] T026 Require `--sample` in the runbook so evaluation stays offline and explicit.
 - [x] T027 Run provider evaluation CLI, provider decision, pyright, and ruff checks.
+
+## Phase 7: Replay CSV Export Surface
+
+- [x] T028 Add CLI coverage that validated provider samples export to Replay MVP CSV columns.
+- [x] T029 Implement `provider-export-replay` as an offline sample-to-replay CSV command.
+- [x] T030 Document the replay CSV export command in the runbook.
+- [x] T031 Run provider export CLI, provider evaluation CLI, replay fixture, pyright, and ruff checks.

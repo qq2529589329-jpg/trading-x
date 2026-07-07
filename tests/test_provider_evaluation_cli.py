@@ -132,3 +132,60 @@ def test_cli_provider_evaluate_fails_when_sample_lacks_volume(
     assert "provider_evaluation=FAILED mootdx 20260704" in output
     assert "PROVIDER_SAMPLE_MISSING_REQUIRED_FIELDS: volume_since_open" in output
     assert not output_dir.exists()
+
+
+def test_cli_provider_export_replay_writes_replay_csv(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    sample_path = tmp_path / "sample.json"
+    output_path = tmp_path / "20260704.csv"
+    sample_path.write_text(
+        json.dumps(
+            [
+                {
+                    "trade_date": "20260704",
+                    "quote_time": "09:35:00",
+                    "ts_code": "300001.SZ",
+                    "price": 10.5,
+                    "amount_since_open": 1050000.0,
+                    "volume_since_open": 100000.0,
+                    "bar_high": 10.6,
+                    "bar_low": 10.1,
+                    "source": "mootdx",
+                    "latency_ms": 25,
+                    "validation_status": "accepted",
+                    "reason_codes": [],
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "trading_x",
+            "provider-export-replay",
+            "--source",
+            "mootdx",
+            "--date",
+            "20260704",
+            "--sample",
+            str(sample_path),
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    exit_code = cli.main()
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert f"replay_csv={output_path} rows=1" in output
+    assert output_path.read_text(encoding="utf-8").splitlines() == [
+        "trade_date,quote_time,ts_code,price,amount_since_open,volume_since_open,bar_high,bar_low",
+        "20260704,09:35:00,300001.SZ,10.5,1050000.0,100000.0,10.6,10.1",
+    ]

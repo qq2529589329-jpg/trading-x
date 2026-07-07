@@ -15,4 +15,14 @@ uv run python -m trading_x provider-evaluate --source tencent_snapshot --date YY
 
 The command writes provider evaluation artifacts only. It must not write `intraday_alerts`, `intraday_alert_locks`, `intraday_plans`, orders, positions, or watch alerts.
 
+## Replay CSV Export
+
+After a sample validates, export it to the Replay MVP CSV contract explicitly:
+
+```powershell
+uv run python -m trading_x provider-export-replay --source mootdx --date YYYYMMDD --sample data/provider_samples/YYYYMMDD_mootdx.json --output data/replay/YYYYMMDD.csv
+```
+
+This is offline normalization only. It does not enable live watch or choose a default provider.
+
 Real source adapters remain disabled until a later specification proves field completeness, compliance-use status, and fake watch parity.

@@ -55,6 +55,7 @@ As the trader, I want every candidate source scored with the same sample schema,
 - Evaluation MUST NOT write `intraday_alerts` or `intraday_alert_locks`.
 - Evaluation MUST NOT emit `BUY_TRIGGER`, `SELL_TRIGGER`, orders, position guidance, or T+1 guidance.
 - Evaluation MUST NOT parse Markdown reports for execution values.
+- Exporting replay CSV from provider samples is offline normalization only; it MUST NOT enable live watch.
 - Missing or zero cumulative volume disqualifies a source for buy-trigger watch.
 - Missing or unordered timestamps disqualify a source for live watch.
 - Missing previous close or limit price keeps the source disabled for rules that depend on those fields.
@@ -73,6 +74,7 @@ As the trader, I want every candidate source scored with the same sample schema,
 - **FR-008**: Existing replay fixture behavior MUST remain unchanged.
 - **FR-009**: Existing fake watch parity behavior MUST remain unchanged.
 - **FR-010**: Real-provider watch enablement MUST be deferred to a later specification after field completeness, compliance-use status, and fake parity remain green.
+- **FR-011**: System MUST provide an offline command to export validated provider samples to the Replay MVP CSV schema.
 
 ## Success Criteria
 
@@ -83,6 +85,7 @@ As the trader, I want every candidate source scored with the same sample schema,
 - **SC-005**: Existing replay fixture commands still pass with stable alert counts and reason codes.
 - **SC-006**: Existing fake watch parity tests still pass.
 - **SC-007**: GitHub Actions remains green after the evaluation specification and implementation commits.
+- **SC-008**: A validated provider sample can be exported to `trade_date,quote_time,ts_code,price,amount_since_open,volume_since_open,bar_high,bar_low` replay CSV.
 
 ## Assumptions
 
