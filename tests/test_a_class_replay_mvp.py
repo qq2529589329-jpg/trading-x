@@ -92,6 +92,45 @@ def test_cli_plans_materialize_accepts_a_class_strategy(
     assert plan_count == 1
 
 
+def test_cli_replay_materializes_a_class_strategy_before_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    db_path = tmp_path / "trading_x.db"
+    input_path = tmp_path / "replay.csv"
+    report_dir = tmp_path / "reports"
+    init_db(db_path)
+    _seed_a_candidate(db_path)
+    write_replay_csv(input_path, "20260630,09:36:00,300001.SZ,11.00,11000,1000,11.00,10.80\n")
+    monkeypatch.setattr(cli, "DEFAULT_REPORT_DIR", report_dir)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "trading_x",
+            "--db",
+            str(db_path),
+            "replay",
+            "--date",
+            "20260630",
+            "--input",
+            str(input_path),
+            "--strategy",
+            StrategyType.A_SPACE_LEADER,
+            "--materialize",
+        ],
+    )
+
+    exit_code = cli.main()
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "intraday_plans=1 20260630" in output
+    assert "replay=SUCCESS 20260630 alerts=1" in output
+    assert alert_rows(db_path) == [("BUY_TRIGGER", "A_BUY_TRIGGERED")]
+
+
 def _seed_a_candidate(db_path: Path) -> None:
     seed_b_candidate(db_path, pre_close=10.0)
     with sqlite3.connect(db_path) as conn:

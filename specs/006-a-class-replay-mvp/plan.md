@@ -27,6 +27,7 @@ Add an explicit A-class replay path on top of the existing intraday replay pipel
 
 - Add optional `strategy_type` parameters to plan materialization, plan loading, and replay orchestration; default stays `B_CAPACITY_LEADER`.
 - Add CLI `--strategy` to `plans materialize` and `replay` with choices from `StrategyType`.
+- Add `replay --materialize` as the minimal daily replay shortcut, reusing the existing materializer instead of a new orchestration command.
 - Derive the A-class entry/breakout price from structured limit/daily price fields, preferring `stk_limit_prices.up_limit` then daily close/high.
 - Keep A-class volume gate disabled in this MVP; B-class VWAP/volume discipline remains unchanged.
 - Emit `A_BUY_TRIGGERED` only on explicit A-class replay.

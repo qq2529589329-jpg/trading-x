@@ -11,3 +11,8 @@
 
 - `intraday_replay_runs` does not store `strategy_type`; this MVP keeps the existing schema to avoid a schema change. If same-date A/B replay audit ambiguity becomes material, add `strategy_type` in a later spec.
 - A-class trigger rules are intentionally minimal. A_STRONG/L3/realtime semantics remain out of scope.
+
+## Daily Shortcut Check
+
+- `replay --materialize` reuses existing structured plan materialization; no Markdown parsing or new data source is introduced.
+- Default strategy remains B-class unless `--strategy A_SPACE_LEADER` is supplied.

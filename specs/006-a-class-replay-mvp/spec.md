@@ -39,6 +39,7 @@ As the trader, I want to replay A-class plans only when I explicitly ask for A-c
 - **FR-004**: A-class replay MUST write A-specific reason codes, starting with `A_BUY_TRIGGERED`.
 - **FR-005**: Existing B-class default replay and materialization behavior MUST remain unchanged.
 - **FR-006**: A-class replay MUST NOT introduce sell triggers, positions, T+1 sellability, realtime watch, A_STRONG execution semantics, or automatic orders.
+- **FR-007**: `replay --materialize --strategy A_SPACE_LEADER` MUST materialize same-date A-class plans before replay evaluation.
 
 ## Out of Scope
 

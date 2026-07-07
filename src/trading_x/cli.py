@@ -65,6 +65,7 @@ def main() -> int:
     replay_parser.add_argument("--date", required=True)
     replay_parser.add_argument("--input", type=Path)
     replay_parser.add_argument("--strategy", choices=strategy_choices, default=StrategyType.B_CAPACITY_LEADER.value)
+    replay_parser.add_argument("--materialize", action="store_true")
     watch_parser = subparsers.add_parser("watch")
     watch_parser.add_argument("--date", required=True)
     watch_parser.add_argument("--input", type=Path)
@@ -123,13 +124,17 @@ def main() -> int:
         return 0
     if args.command == "replay":
         init_db(args.db)
+        strategy_type = StrategyType(args.strategy)
+        if args.materialize:
+            count = materialize_intraday_plans(args.db, args.date, strategy_type=strategy_type)
+            print(f"intraday_plans={count} {args.date}")
         input_path = args.input or Path("data") / "replay" / f"{args.date}.csv"
         result = run_replay(
             args.db,
             args.date,
             input_path,
             DEFAULT_REPORT_DIR,
-            strategy_type=StrategyType(args.strategy),
+            strategy_type=strategy_type,
         )
         print(f"replay={result.status} {args.date} alerts={result.alert_count}")
         if result.error_message:
