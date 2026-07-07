@@ -20,6 +20,14 @@ uv run python -m trading_x doctor --date YYYYMMDD
 
 Then edit `.env` locally and set your own `TUSHARE_TOKEN`. If `doctor` fails because the token is missing, fix `.env` or the process environment first.
 
+## Daily Smoke
+
+```powershell
+.\scripts\daily-smoke.ps1 -Date YYYYMMDD
+```
+
+This runs the daily operational path. If `data/replay/YYYYMMDD.csv` exists, it also runs replay and fake watch.
+
 ## Daily After-Close Flow
 
 Run the daily pipeline for the trade date after close:
