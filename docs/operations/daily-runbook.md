@@ -117,6 +117,14 @@ uv run python -m trading_x watch --date YYYYMMDD --input data/replay/YYYYMMDD.cs
 
 Use this for parity checks before any real provider is trusted.
 
+## Provider Offline Smoke
+
+```powershell
+.\scripts\provider-offline.ps1 -Date YYYYMMDD -Source tencent_snapshot
+```
+
+This consumes `data/provider_samples/YYYYMMDD_tencent_snapshot.json`. If the sample is missing, it writes a template and stops without fetching live data.
+
 ## Provider Evaluation
 
 Generate a fill-in template from current plans:
