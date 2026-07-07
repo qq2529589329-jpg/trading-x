@@ -80,11 +80,13 @@ Explicit replay path:
 uv run python -m trading_x replay --date YYYYMMDD --input data/replay/YYYYMMDD.csv
 ```
 
-A-class shortcut:
+A-class smoke fixture:
 
 ```powershell
-uv run python -m trading_x replay --date YYYYMMDD --strategy A_SPACE_LEADER --materialize --input data/replay/YYYYMMDD.csv
+uv run python -m trading_x replay --date 20260630 --strategy A_SPACE_LEADER --materialize --input data/replay/20260630_a_space_leader.csv
 ```
+
+For real dates, the replay CSV must cover every symbol in `plans symbols` for that strategy.
 
 Expected outputs:
 
