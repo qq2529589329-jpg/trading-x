@@ -15,6 +15,17 @@ uv run python -m trading_x plans symbols --date YYYYMMDD --strategy B_CAPACITY_L
 
 Use this output as the provider sample universe. Do not type symbols from Markdown reports.
 
+## Provider Sample Template
+
+After materializing intraday plans, generate a fill-in JSON template from `intraday_plans`:
+
+```powershell
+uv run python -m trading_x provider-sample-template --source mootdx --date YYYYMMDD --strategy A_SPACE_LEADER --output data/provider_samples/YYYYMMDD_mootdx_template.json
+uv run python -m trading_x provider-sample-template --source tencent_snapshot --date YYYYMMDD --strategy A_SPACE_LEADER --output data/provider_samples/YYYYMMDD_tencent_snapshot_template.json
+```
+
+The template contains one row per planned symbol and uses `TEMPLATE_FILL_REQUIRED` placeholders. Fill real provider values before running `provider-evaluate` or `provider-export-replay`; placeholder rows are not valid samples.
+
 ## Manual Evaluation Command
 
 Capture provider rows into a normalized JSON sample file that matches `contracts/provider-snapshot-sample-schema.json`, then run evaluation explicitly:

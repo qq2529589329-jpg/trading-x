@@ -5,8 +5,10 @@ import sys
 
 import pytest
 
+from intraday_replay_fixtures import PlanFixture, insert_plan
 from trading_x import cli
 from trading_x.db import init_db
+from trading_x.types import StrategyType
 
 
 def test_cli_provider_evaluate_writes_artifacts_only(
@@ -188,4 +190,63 @@ def test_cli_provider_export_replay_writes_replay_csv(
     assert output_path.read_text(encoding="utf-8").splitlines() == [
         "trade_date,quote_time,ts_code,price,amount_since_open,volume_since_open,bar_high,bar_low",
         "20260704,09:35:00,300001.SZ,10.5,1050000.0,100000.0,10.6,10.1",
+    ]
+
+
+def test_cli_provider_sample_template_writes_rows_from_intraday_plans(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    db_path = tmp_path / "trading_x.db"
+    output_path = tmp_path / "template.json"
+    init_db(db_path)
+    insert_plan(
+        db_path,
+        PlanFixture(
+            official_pre_close=10.0,
+            volume_min_abs_amount=1_000_000.0,
+            strategy_type=StrategyType.A_SPACE_LEADER,
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "trading_x",
+            "--db",
+            str(db_path),
+            "provider-sample-template",
+            "--source",
+            "mootdx",
+            "--date",
+            "20260630",
+            "--strategy",
+            StrategyType.A_SPACE_LEADER,
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    exit_code = cli.main()
+
+    output = capsys.readouterr().out
+    rows = json.loads(output_path.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert f"provider_sample_template={output_path} rows=1" in output
+    assert rows == [
+        {
+            "amount_since_open": 0.0,
+            "bar_high": 0.0,
+            "bar_low": 0.0,
+            "latency_ms": 0,
+            "price": 0.0,
+            "quote_time": "09:35:00",
+            "reason_codes": ["TEMPLATE_FILL_REQUIRED"],
+            "source": "mootdx",
+            "trade_date": "20260630",
+            "ts_code": "300001.SZ",
+            "validation_status": "rejected",
+            "volume_since_open": 0.0,
+        }
     ]

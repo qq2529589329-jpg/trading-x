@@ -61,3 +61,10 @@
 - [x] T032 Add CLI coverage for `plans symbols` reading same-date same-strategy intraday plans.
 - [x] T033 Implement `plans symbols` for provider sample universe handoff.
 - [x] T034 Run full verification and a 20260706 A-class symbol export smoke test.
+
+## Phase 9: Provider Sample Template Surface
+
+- [x] T035 Add CLI coverage for `provider-sample-template` reading same-date same-strategy intraday plans.
+- [x] T036 Implement `provider-sample-template` as an offline fill-in JSON scaffold.
+- [x] T037 Document that template placeholders must be replaced before evaluation/export.
+- [x] T038 Run provider sample template CLI coverage and full verification.
