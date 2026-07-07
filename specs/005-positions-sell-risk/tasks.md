@@ -6,11 +6,11 @@
 
 ## Phase 1: Position Ledger Contract
 
-- [ ] T001 Add contract coverage that a valid position ledger satisfies `position-ledger-schema.json`.
-- [ ] T002 Add contract coverage that missing `available_shares` fails validation.
-- [ ] T003 Add contract coverage that negative shares or cost fields fail validation.
-- [ ] T004 Implement the minimal position ledger parser.
-- [ ] T005 Run `uv run pytest tests/test_positions_contract.py -q`.
+- [x] T001 Add contract coverage that a valid position ledger satisfies `position-ledger-schema.json`.
+- [x] T002 Add contract coverage that missing `available_shares` fails validation.
+- [x] T003 Add contract coverage that negative shares or cost fields fail validation.
+- [x] T004 Implement the minimal position ledger parser.
+- [x] T005 Run `uv run pytest tests/test_positions_contract.py -q`.
 
 ## Phase 2: Position Import Persistence
 
