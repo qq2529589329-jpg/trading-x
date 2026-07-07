@@ -1,9 +1,11 @@
 from dataclasses import dataclass
+from typing import assert_never
 import json
 import sqlite3
 
 from trading_x.intraday_models import AlertIntent, IntradayAlert, IntradayPlan, ReplayBar, utc_now_text
 from trading_x.trading_rules import is_post_close_fixed_price_time
+from trading_x.types import StrategyType
 
 @dataclass(frozen=True, slots=True)
 class RuleContext:
@@ -79,6 +81,13 @@ def alert_for_bar(
                 ),
             )
         return None
+    match StrategyType(plan.strategy_type):
+        case StrategyType.A_SPACE_LEADER:
+            return _a_alert_for_bar(conn, plan, bar)
+        case StrategyType.B_CAPACITY_LEADER:
+            pass
+        case unreachable:
+            assert_never(unreachable)
     if bar.quote_time < plan.vwap_active_after:
         return None
     if vwap is None:
@@ -127,6 +136,28 @@ def alert_exists(
         (item.trade_date, item.ts_code, item.strategy_type, alert_type, reason_code),
     ).fetchone()
     return row is not None
+
+
+def _a_alert_for_bar(
+    conn: sqlite3.Connection,
+    plan: IntradayPlan,
+    bar: ReplayBar,
+) -> IntradayAlert | None:
+    if bar.quote_time < plan.vwap_active_after or not (plan.entry_low <= bar.price <= plan.entry_high):
+        return None
+    if bar.price >= plan.breakout_price:
+        return _alert(
+            plan,
+            bar,
+            AlertIntent("BUY_TRIGGER", "HIGH", "A_BUY_TRIGGERED", "ENTRY_ARMED", "BUY_TRIGGER"),
+        )
+    if alert_exists(conn, plan, "BUY_READY", "A_LIMIT_READY"):
+        return None
+    return _alert(
+        plan,
+        bar,
+        AlertIntent("BUY_READY", "MEDIUM", "A_LIMIT_READY", "OPEN_OBSERVING", "BUY_READY"),
+    )
 
 
 def _deduped_alert(

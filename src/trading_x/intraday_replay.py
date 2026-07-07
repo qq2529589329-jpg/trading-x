@@ -18,6 +18,8 @@ def run_replay(
     trade_date: str,
     input_path: Path,
     report_dir: Path,
+    *,
+    strategy_type: StrategyType = StrategyType.B_CAPACITY_LEADER,
 ) -> ReplayResult:
     started_at = utc_now_text()
     input_sha256 = _sha256(input_path)
@@ -38,15 +40,15 @@ def run_replay(
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             "DELETE FROM intraday_alerts WHERE trade_date = ? AND strategy_type = ?",
-            (trade_date, StrategyType.B_CAPACITY_LEADER),
+            (trade_date, strategy_type),
         )
         conn.execute(
             "DELETE FROM intraday_alert_locks WHERE trade_date = ? AND strategy_type = ?",
-            (trade_date, StrategyType.B_CAPACITY_LEADER),
+            (trade_date, strategy_type),
         )
         plan_count = conn.execute(
             "SELECT COUNT(*) FROM intraday_plans WHERE trade_date = ? AND strategy_type = ?",
-            (trade_date, StrategyType.B_CAPACITY_LEADER),
+            (trade_date, strategy_type),
         ).fetchone()[0]
     if plan_count == 0:
         if input_path.exists():
@@ -83,7 +85,7 @@ def run_replay(
         return result
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
-        plans = load_plans(conn, trade_date)
+        plans = load_plans(conn, trade_date, strategy_type)
         invalid_reasons = disable_invalid_plans(conn, plans)
         if plans and not bars:
             result = failed(len(plans), "REPLAY_CSV_NO_ROWS")

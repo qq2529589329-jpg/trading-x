@@ -52,6 +52,7 @@ class NullAdapter:
 def main() -> int:
     parser = argparse.ArgumentParser(prog="trading_x")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
+    strategy_choices = [strategy.value for strategy in StrategyType]
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("init-db")
     doctor_parser = subparsers.add_parser("doctor")
@@ -63,6 +64,7 @@ def main() -> int:
     replay_parser = subparsers.add_parser("replay")
     replay_parser.add_argument("--date", required=True)
     replay_parser.add_argument("--input", type=Path)
+    replay_parser.add_argument("--strategy", choices=strategy_choices, default=StrategyType.B_CAPACITY_LEADER.value)
     watch_parser = subparsers.add_parser("watch")
     watch_parser.add_argument("--date", required=True)
     watch_parser.add_argument("--input", type=Path)
@@ -74,6 +76,7 @@ def main() -> int:
     plans_subparsers = plans_parser.add_subparsers(dest="plans_command", required=True)
     materialize_parser = plans_subparsers.add_parser("materialize")
     materialize_parser.add_argument("--date", required=True)
+    materialize_parser.add_argument("--strategy", choices=strategy_choices, default=StrategyType.B_CAPACITY_LEADER.value)
     daily_parser = subparsers.add_parser("daily")
     daily_parser.add_argument("--date", required=True)
     acceptance_parser = subparsers.add_parser("acceptance")
@@ -121,7 +124,13 @@ def main() -> int:
     if args.command == "replay":
         init_db(args.db)
         input_path = args.input or Path("data") / "replay" / f"{args.date}.csv"
-        result = run_replay(args.db, args.date, input_path, DEFAULT_REPORT_DIR)
+        result = run_replay(
+            args.db,
+            args.date,
+            input_path,
+            DEFAULT_REPORT_DIR,
+            strategy_type=StrategyType(args.strategy),
+        )
         print(f"replay={result.status} {args.date} alerts={result.alert_count}")
         if result.error_message:
             print(result.error_message)
@@ -143,7 +152,7 @@ def main() -> int:
         return handle_provider_replay_export_command(args)
     if args.command == "plans":
         init_db(args.db)
-        count = materialize_intraday_plans(args.db, args.date)
+        count = materialize_intraday_plans(args.db, args.date, strategy_type=StrategyType(args.strategy))
         print(f"intraday_plans={count} {args.date}")
         return 0
     if args.command == "daily":

@@ -7,10 +7,14 @@ from trading_x.intraday_rules import RuleContext, alert_exists, alert_for_bar
 from trading_x.types import StrategyType
 
 
-def load_plans(conn: sqlite3.Connection, trade_date: str) -> list[IntradayPlan]:
+def load_plans(
+    conn: sqlite3.Connection,
+    trade_date: str,
+    strategy_type: StrategyType = StrategyType.B_CAPACITY_LEADER,
+) -> list[IntradayPlan]:
     rows = conn.execute(
         "SELECT * FROM intraday_plans WHERE trade_date = ? AND strategy_type = ? ORDER BY ts_code",
-        (trade_date, StrategyType.B_CAPACITY_LEADER),
+        (trade_date, strategy_type),
     ).fetchall()
     return [_plan_from_row(row) for row in rows]
 

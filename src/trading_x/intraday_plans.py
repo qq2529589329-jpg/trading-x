@@ -1,20 +1,27 @@
 from pathlib import Path
+from typing import assert_never
 import json
 import math
 import sqlite3
 
+from trading_x.intraday_a_plans import a_plan_from_candidate, a_plan_from_snapshot
 from trading_x.intraday_models import SYSTEM_VERSION, IntradayPlan, utc_now_text
 from trading_x.trading_rules import new_rule_compatibility_for, rule_regime_for
 from trading_x.types import StrategyType
 
 
-def materialize_intraday_plans(db_path: Path, trade_date: str) -> int:
+def materialize_intraday_plans(
+    db_path: Path,
+    trade_date: str,
+    *,
+    strategy_type: StrategyType = StrategyType.B_CAPACITY_LEADER,
+) -> int:
     created_at = utc_now_text()
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         conn.execute(
             "DELETE FROM intraday_plans WHERE trade_date = ? AND strategy_type = ?",
-            (trade_date, StrategyType.B_CAPACITY_LEADER),
+            (trade_date, strategy_type),
         )
         snapshot_run_exists = (
             conn.execute("SELECT 1 FROM candidate_runs WHERE trade_date = ? LIMIT 1", (trade_date,)).fetchone()
@@ -25,35 +32,66 @@ def materialize_intraday_plans(db_path: Path, trade_date: str) -> int:
             "cl.theme_confidence, cl.theme_strength_score, cl.entry_low, cl.entry_high, "
             "cl.breakout_price, cl.stop_price, cl.max_position_cash, cl.max_loss, "
             "cl.rule_version_at_signal, cl.rule_regime_at_signal, cl.plan_json, "
-            "d.pre_close AS daily_pre_close, "
-            "l.pre_close AS limit_pre_close "
+            "d.high AS daily_high, d.low AS daily_low, d.close AS daily_close, "
+            "d.pre_close AS daily_pre_close, l.pre_close AS limit_pre_close, l.up_limit AS limit_up "
             "FROM candidates_latest cl "
             "LEFT JOIN daily_quotes d ON d.ts_code = cl.ts_code AND d.trade_date = cl.trade_date "
             "LEFT JOIN stk_limit_prices l ON l.ts_code = cl.ts_code AND l.trade_date = cl.trade_date "
             "WHERE cl.trade_date = ? AND cl.strategy_type = ?",
-            (trade_date, StrategyType.B_CAPACITY_LEADER),
+            (trade_date, strategy_type),
         ).fetchall()
         if snapshot_run_exists:
-            plans = [_plan_from_snapshot(trade_date, row, created_at) for row in snapshot_rows]
+            plans = [_plan_from_snapshot(trade_date, row, created_at, strategy_type) for row in snapshot_rows]
             conn.executemany(_INSERT_PLAN_SQL, [_plan_params(plan) for plan in plans])
             return len(plans)
         rows = conn.execute(
             "SELECT c.ts_code, s.name, c.strategy_type, c.theme_name, c.theme_confidence, "
             "c.theme_strength_score, d.high, d.low, d.close, "
-            "d.pre_close AS daily_pre_close, l.pre_close AS limit_pre_close "
+            "d.pre_close AS daily_pre_close, l.pre_close AS limit_pre_close, l.up_limit AS limit_up "
             "FROM candidates c "
             "LEFT JOIN stock_universe s ON s.ts_code = c.ts_code "
             "LEFT JOIN daily_quotes d ON d.ts_code = c.ts_code AND d.trade_date = c.trade_date "
             "LEFT JOIN stk_limit_prices l ON l.ts_code = c.ts_code AND l.trade_date = c.trade_date "
             "WHERE c.trade_date = ? AND c.strategy_type = ? AND c.risk_pass = 1",
-            (trade_date, StrategyType.B_CAPACITY_LEADER),
+            (trade_date, strategy_type),
         ).fetchall()
-        plans = [_plan_from_candidate(trade_date, row, created_at) for row in rows]
+        plans = [_plan_from_candidate(trade_date, row, created_at, strategy_type) for row in rows]
         conn.executemany(_INSERT_PLAN_SQL, [_plan_params(plan) for plan in plans])
     return len(plans)
 
 
-def _plan_from_snapshot(trade_date: str, row: sqlite3.Row, created_at: str) -> IntradayPlan:
+def _plan_from_snapshot(
+    trade_date: str,
+    row: sqlite3.Row,
+    created_at: str,
+    strategy_type: StrategyType,
+) -> IntradayPlan:
+    match strategy_type:
+        case StrategyType.A_SPACE_LEADER:
+            return a_plan_from_snapshot(trade_date, row, created_at)
+        case StrategyType.B_CAPACITY_LEADER:
+            return _b_plan_from_snapshot(trade_date, row, created_at)
+        case unreachable:
+            assert_never(unreachable)
+
+
+def _plan_from_candidate(
+    trade_date: str,
+    row: sqlite3.Row,
+    created_at: str,
+    strategy_type: StrategyType,
+) -> IntradayPlan:
+    match strategy_type:
+        case StrategyType.A_SPACE_LEADER:
+            return a_plan_from_candidate(trade_date, row, created_at)
+        case StrategyType.B_CAPACITY_LEADER:
+            return _b_plan_from_candidate(trade_date, row, created_at)
+        case unreachable:
+            assert_never(unreachable)
+
+
+
+def _b_plan_from_snapshot(trade_date: str, row: sqlite3.Row, created_at: str) -> IntradayPlan:
     official_pre_close, pre_close_source = _pre_close(row["limit_pre_close"], row["daily_pre_close"])
     return IntradayPlan(
         trade_date=trade_date,
@@ -92,7 +130,7 @@ def _plan_from_snapshot(trade_date: str, row: sqlite3.Row, created_at: str) -> I
     )
 
 
-def _plan_from_candidate(trade_date: str, row: sqlite3.Row, created_at: str) -> IntradayPlan:
+def _b_plan_from_candidate(trade_date: str, row: sqlite3.Row, created_at: str) -> IntradayPlan:
     official_pre_close, pre_close_source = _pre_close(row["limit_pre_close"], row["daily_pre_close"])
     close = _float_or_zero(row["close"])
     high = _float_or_zero(row["high"])
@@ -143,6 +181,7 @@ def _plan_from_candidate(trade_date: str, row: sqlite3.Row, created_at: str) -> 
     )
 
 
+
 def _rule_version(trade_date: str) -> str:
     return new_rule_compatibility_for(trade_date).trading_rule_version
 
@@ -167,6 +206,7 @@ def _pre_close_value(value: str | int | float | None) -> float | None:
     if not math.isfinite(number) or number < 0:
         return math.nan
     return number if number > 0 else None
+
 
 
 def _float_or_zero(value: str | int | float | None) -> float:
