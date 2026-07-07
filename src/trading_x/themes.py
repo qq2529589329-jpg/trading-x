@@ -144,19 +144,19 @@ def _load_aggregates(conn: sqlite3.Connection, trade_date: str) -> list[ThemeAgg
         "SELECT m.theme_primary, COUNT(*), "
         "SUM(CASE WHEN d.pct_chg > 0 THEN 1 ELSE 0 END), "
         "SUM(CASE WHEN l.up_limit > 0 AND d.close >= l.up_limit - 0.001 THEN 1 ELSE 0 END), "
-        "AVG(d.pct_chg), SUM(d.amount), "
+        "AVG(d.pct_chg), SUM(COALESCE(d.regular_amount, d.amount)), "
         "SUM(CASE WHEN c.ts_code IS NULL THEN 0 ELSE 1 END), "
         "MAX(CASE m.confidence WHEN 'HIGH' THEN 3 WHEN 'MEDIUM' THEN 2 ELSE 1 END), "
         "SUM(CASE WHEN l.up_limit > 0 AND d.close >= l.up_limit - 0.001 THEN m.theme_weight ELSE 0 END), "
         "SUM(d.pct_chg * m.theme_weight) / NULLIF(SUM(m.theme_weight), 0), "
-        "SUM(d.amount * m.theme_weight) "
+        "SUM(COALESCE(d.regular_amount, d.amount) * m.theme_weight) "
         "FROM theme_members m "
         "JOIN stock_universe s ON s.ts_code = m.ts_code "
         "JOIN daily_quotes d ON d.ts_code = m.ts_code AND d.trade_date = ? "
         "LEFT JOIN stk_limit_prices l ON l.ts_code = m.ts_code AND l.trade_date = ? "
         "LEFT JOIN (SELECT DISTINCT ts_code FROM candidates WHERE trade_date = ?) c "
         "ON c.ts_code = m.ts_code "
-        "WHERE s.included = 1 "
+        "WHERE s.included = 1 AND s.is_st = 0 AND s.is_delisting_risk = 0 "
         "GROUP BY m.theme_primary",
         (trade_date, trade_date, trade_date),
     ).fetchall()
@@ -182,8 +182,10 @@ def _load_aggregates(conn: sqlite3.Connection, trade_date: str) -> list[ThemeAgg
 def _core_symbols(conn: sqlite3.Connection, trade_date: str, theme_name: str) -> str:
     rows = conn.execute(
         "SELECT m.ts_code FROM theme_members m "
+        "JOIN stock_universe s ON s.ts_code = m.ts_code "
         "JOIN daily_quotes d ON d.ts_code = m.ts_code AND d.trade_date = ? "
-        "WHERE m.theme_primary = ? "
+        "WHERE m.theme_primary = ? AND s.included = 1 "
+        "AND s.is_st = 0 AND s.is_delisting_risk = 0 "
         "ORDER BY m.theme_weight DESC, d.amount DESC, d.pct_chg DESC LIMIT 5",
         (trade_date, theme_name),
     ).fetchall()

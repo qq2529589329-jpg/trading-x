@@ -56,6 +56,11 @@ CREATE TABLE IF NOT EXISTS daily_quotes (
     pct_chg REAL,
     vol REAL,
     amount REAL,
+    regular_amount REAL,
+    post_close_amount REAL,
+    total_amount REAL,
+    post_close_amount_ratio REAL,
+    post_close_data_available INTEGER,
     PRIMARY KEY (trade_date, ts_code)
 );
 
@@ -197,6 +202,8 @@ CREATE TABLE IF NOT EXISTS candidate_snapshots (
     theme_confidence TEXT,
     theme_strength_score REAL,
     data_capability TEXT,
+    rule_version_at_signal TEXT,
+    rule_regime_at_signal TEXT,
     entry_low REAL,
     entry_high REAL,
     stop_price REAL,
@@ -248,8 +255,23 @@ CREATE TABLE IF NOT EXISTS trade_logs (
     price REAL,
     shares INTEGER,
     strategy_type TEXT,
+    rule_version_at_entry TEXT,
+    rule_version_at_exit TEXT,
     note TEXT,
     created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS post_close_activity (
+    trade_date TEXT,
+    ts_code TEXT,
+    close_price REAL,
+    post_close_amount REAL,
+    post_close_volume REAL,
+    post_close_amount_ratio REAL,
+    data_available INTEGER,
+    source TEXT,
+    created_at TEXT,
+    PRIMARY KEY (trade_date, ts_code)
 );
 
 CREATE TABLE IF NOT EXISTS intraday_plans (
@@ -281,6 +303,8 @@ CREATE TABLE IF NOT EXISTS intraday_plans (
     theme_strength_score REAL,
     source_candidate_id TEXT,
     source_report_date TEXT,
+    rule_version_at_signal TEXT,
+    rule_regime_at_signal TEXT,
     plan_json TEXT,
     system_version TEXT,
     created_at TEXT,

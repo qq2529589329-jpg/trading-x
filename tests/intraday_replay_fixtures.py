@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import sqlite3
 
+from trading_x.trading_rules import new_rule_compatibility_for, rule_regime_for
 from trading_x.types import CandidateGrade, Confidence, StrategyType
 
 
@@ -85,9 +86,9 @@ def insert_plan(db_path: Path, fixture: PlanFixture) -> None:
             "vwap_active_after, vwap_above_confirm_seconds, volume_gate_enabled, "
             "volume_min_abs_amount, volume_same_window_multiplier, volume_ratio_0935, "
             "volume_ratio_0945, volume_ratio_1000, theme_name, theme_confidence, "
-            "theme_strength_score, source_candidate_id, source_report_date, plan_json, "
-            "system_version, created_at"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "theme_strength_score, source_candidate_id, source_report_date, rule_version_at_signal, "
+            "rule_regime_at_signal, plan_json, system_version, created_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 fixture.trade_date,
                 "300001.SZ",
@@ -117,6 +118,8 @@ def insert_plan(db_path: Path, fixture: PlanFixture) -> None:
                 88.0,
                 "300001.SZ:B_CAPACITY_LEADER",
                 fixture.trade_date,
+                new_rule_compatibility_for(fixture.trade_date).trading_rule_version,
+                rule_regime_for(fixture.trade_date),
                 "{}",
                 "test",
                 "2026-06-30T09:00:00",

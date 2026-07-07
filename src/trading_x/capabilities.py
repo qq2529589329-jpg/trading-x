@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Protocol
 import sqlite3
 
+from trading_x.trading_rules import TRADING_RULE_REGISTRY, TradingRuleQuery
 from trading_x.types import DataCapabilityLevel
 
 
@@ -79,7 +80,12 @@ def persist_capabilities(db_path: Path, results: list[ApiCheckResult]) -> None:
         )
 
 
-def run_doctor(db_path: Path, adapter: CapabilityAdapter, token: str | None) -> DoctorSummary:
+def run_doctor(
+    db_path: Path,
+    adapter: CapabilityAdapter,
+    token: str | None,
+    trade_date: str | None = None,
+) -> DoctorSummary:
     if token is None or token.strip() == "":
         results = [
             ApiCheckResult(
@@ -95,18 +101,50 @@ def run_doctor(db_path: Path, adapter: CapabilityAdapter, token: str | None) -> 
             level=DataCapabilityLevel.DEGRADED,
             available_apis=(),
             unavailable_apis=tuple(result.api_name for result in results),
-            messages=("TUSHARE_TOKEN is required; reports will be DEGRADED.",),
+            messages=("TUSHARE_TOKEN is required; reports will be DEGRADED.", *data_rule_mismatch_messages(db_path, trade_date)),
         )
 
     results = [adapter.check_api(definition.name) for definition in API_DEFINITIONS]
     persist_capabilities(db_path, results)
-    level = capability_level(results)
+    rule_messages = data_rule_mismatch_messages(db_path, trade_date)
+    level = DataCapabilityLevel.DEGRADED if rule_messages else capability_level(results)
     return DoctorSummary(
         level=level,
         available_apis=tuple(result.api_name for result in results if result.available),
         unavailable_apis=tuple(result.api_name for result in results if not result.available),
-        messages=(f"Data capability: {level}",),
+        messages=(f"Data capability: {level}", *rule_messages),
     )
+
+
+def data_rule_mismatch_messages(db_path: Path, trade_date: str | None) -> tuple[str, ...]:
+    if trade_date is None or trade_date < "20260706":
+        return ()
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT s.ts_code, s.market, s.is_st, l.pre_close, l.up_limit, l.down_limit "
+            "FROM stk_limit_prices l "
+            "JOIN stock_universe s ON s.ts_code = l.ts_code "
+            "WHERE l.trade_date = ?",
+            (trade_date,),
+        ).fetchall()
+    messages: list[str] = []
+    for ts_code, market, is_st, pre_close, up_limit, down_limit in rows:
+        if pre_close <= 0 or up_limit <= 0 or down_limit <= 0:
+            continue
+        rule = TRADING_RULE_REGISTRY.rule_for(
+            TradingRuleQuery(trade_date=trade_date, board=market, is_st=bool(is_st), is_etf=False),
+        )
+        expected_up = pre_close * (1 + rule.price_limit_ratio)
+        expected_down = pre_close * (1 - rule.price_limit_ratio)
+        if not (_price_close(up_limit, expected_up) and _price_close(down_limit, expected_down)):
+            messages.append(
+                f"DATA_RULE_MISMATCH: {ts_code} {market} expected {rule.price_limit_ratio:.0%} limit prices",
+            )
+    return tuple(messages)
+
+
+def _price_close(actual: float, expected: float) -> bool:
+    return abs(actual - expected) <= 0.03
 
 
 def capability_level(results: list[ApiCheckResult]) -> DataCapabilityLevel:

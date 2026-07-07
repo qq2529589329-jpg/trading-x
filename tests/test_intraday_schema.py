@@ -28,6 +28,7 @@ def test_init_db_migrates_existing_intraday_plans_for_replay(tmp_path: Path) -> 
             if row[5] > 0
         )
         not_null_columns = {row[1] for row in plan_columns if row[3] > 0}
+        column_names = {row[1] for row in plan_columns}
     insert_plan(db_path, PlanFixture(official_pre_close=10.0, volume_min_abs_amount=1000.0))
     write_replay_csv(input_path, "20260630,09:36:00,300001.SZ,12.00,11000,1000,12.00,11.80\n")
 
@@ -35,6 +36,8 @@ def test_init_db_migrates_existing_intraday_plans_for_replay(tmp_path: Path) -> 
 
     assert pk_columns == ("trade_date", "ts_code", "strategy_type")
     assert {"trade_date", "ts_code", "strategy_type"} <= not_null_columns
+    assert "rule_version_at_signal" in column_names
+    assert "rule_regime_at_signal" in column_names
     assert result.status == "SUCCESS"
     assert alert_rows(db_path) == [("BUY_TRIGGER", "B_BUY_TRIGGERED")]
 

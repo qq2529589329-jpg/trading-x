@@ -158,6 +158,27 @@ def test_volume_gate_disabled_allows_buy_trigger(tmp_path: Path) -> None:
     assert alert_rows(db_path) == [("BUY_TRIGGER", "B_BUY_TRIGGERED")]
 
 
+def test_post_close_fixed_price_phase_blocks_buy_trigger(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+    input_path = tmp_path / "replay.csv"
+    init_db(db_path)
+    insert_plan(
+        db_path,
+        PlanFixture(
+            trade_date="20260706",
+            official_pre_close=10.0,
+            volume_min_abs_amount=1000.0,
+        ),
+    )
+    write_replay_csv(
+        input_path,
+        "20260706,15:10:00,300001.SZ,12.00,10000,1000,12.00,11.80\n",
+    )
+
+    run_replay(db_path, "20260706", input_path, tmp_path / "reports")
+
+    assert alert_rows(db_path) == [("WATCH", "POST_CLOSE_FIXED_PRICE_OBSERVATION")]
+
 def test_invalid_plan_is_disabled_during_replay(tmp_path: Path) -> None:
     db_path = tmp_path / "trading_x.db"
     input_path = tmp_path / "replay.csv"

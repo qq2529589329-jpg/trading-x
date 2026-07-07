@@ -42,6 +42,8 @@ def ensure_intraday_columns(conn: sqlite3.Connection) -> None:
             ("theme_strength_score", "REAL"),
             ("source_candidate_id", "TEXT"),
             ("source_report_date", "TEXT"),
+            ("rule_version_at_signal", "TEXT"),
+            ("rule_regime_at_signal", "TEXT"),
             ("plan_json", "TEXT"),
             ("system_version", "TEXT"),
             ("created_at", "TEXT"),

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trading X Agent Parameter Proposal",
+  "type": "object",
+  "required": [
+    "proposal_id",
+    "rule_version_evidence",
+    "pre_20260706_metrics",
+    "post_20260706_metrics",
+    "regular_amount_assumption",
+    "post_close_data_available",
+    "recommendation"
+  ],
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rule_version_evidence": {
+      "type": "string",
+      "enum": ["split_by_rule_version"]
+    },
+    "pre_20260706_metrics": {
+      "$ref": "#/$defs/metrics"
+    },
+    "post_20260706_metrics": {
+      "$ref": "#/$defs/metrics"
+    },
+    "regular_amount_assumption": {
+      "type": "string",
+      "minLength": 1
+    },
+    "post_close_data_available": {
+      "type": "boolean"
+    },
+    "recommendation": {
+      "type": "string",
+      "enum": ["review_only", "observe", "reject"]
+    }
+  },
+  "$defs": {
+    "metrics": {
+      "type": "object",
+      "required": ["sample_count", "win_rate"],
+      "properties": {
+        "sample_count": {
+          "type": "number",
+          "minimum": 0
+        },
+        "win_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "max_drawdown": {
+          "type": "number"
+        },
+        "expectancy": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

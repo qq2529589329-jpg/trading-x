@@ -104,13 +104,18 @@ def test_candidate_snapshot_stores_structured_plan_prices(tmp_path: Path) -> Non
 
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT entry_low, entry_high, breakout_price, stop_price, plan_json "
-            "FROM candidate_snapshots WHERE run_id = ?",
+            "SELECT entry_low, entry_high, breakout_price, stop_price, plan_json, "
+            "rule_version_at_signal, rule_regime_at_signal FROM candidate_snapshots WHERE run_id = ?",
             ("run-1",),
         ).fetchone()
 
     assert row[:4] == (20.1, 21.2, 21.0, 19.5)
-    assert json.loads(row[4])["breakout_price"] == 21.0
+    plan = json.loads(row[4])
+    assert plan["breakout_price"] == 21.0
+    assert plan["rule_version_at_signal"] == "pre_20260706"
+    assert plan["rule_regime_at_signal"] == "pre_20260706"
+    assert row[5] == "pre_20260706"
+    assert row[6] == "pre_20260706"
 
 
 def test_init_db_migrates_existing_candidate_snapshots_for_structured_plan_fields(
@@ -145,12 +150,12 @@ def test_init_db_migrates_existing_candidate_snapshots_for_structured_plan_field
 
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT entry_low, entry_high, breakout_price, stop_price "
-            "FROM candidate_snapshots WHERE run_id = ?",
+            "SELECT entry_low, entry_high, breakout_price, stop_price, "
+            "rule_version_at_signal, rule_regime_at_signal FROM candidate_snapshots WHERE run_id = ?",
             ("run-migrated",),
         ).fetchone()
 
-    assert row == (20.1, 21.2, 21.0, 19.5)
+    assert row == (20.1, 21.2, 21.0, 19.5, "pre_20260706", "pre_20260706")
 
 
 def _run(run_id: str, generated_at: str) -> CandidateRunRecord:

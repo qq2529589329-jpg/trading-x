@@ -124,6 +124,98 @@ def test_refresh_theme_daily_strength_aggregates_local_fallback(
     assert row[6] == 1.4
 
 
+def test_refresh_theme_daily_strength_excludes_st_from_normal_theme_emotion(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.executemany(
+            "INSERT INTO theme_members ("
+            "ts_code, name, industry, theme_primary, theme_tags, theme_source, "
+            "confidence, updated_at, notes"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                ("600001.SH", "普通样本", "机器人", "机器人", "机器人", "manual", "MEDIUM", "2026-07-06", ""),
+                ("600002.SH", "ST样本", "机器人", "机器人", "机器人", "manual", "MEDIUM", "2026-07-06", ""),
+            ],
+        )
+        conn.executemany(
+            "INSERT INTO stock_universe ("
+            "ts_code, symbol, name, exchange, market, list_date, "
+            "is_st, is_delisting_risk, included, excluded_reason"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                ("600001.SH", "600001", "普通样本", "SSE", "主板", "20200101", 0, 0, 1, None),
+                ("600002.SH", "600002", "ST样本", "SSE", "主板", "20200101", 1, 0, 1, None),
+            ],
+        )
+        conn.executemany(
+            "INSERT INTO daily_quotes ("
+            "trade_date, ts_code, open, high, low, close, pre_close, pct_chg, vol, amount"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                ("20260706", "600001.SH", 10.0, 10.1, 9.9, 10.0, 10.0, 0.0, 1.0, 100.0),
+                ("20260706", "600002.SH", 10.0, 11.0, 9.9, 11.0, 10.0, 10.0, 1.0, 1000.0),
+            ],
+        )
+        conn.executemany(
+            "INSERT INTO stk_limit_prices (trade_date, ts_code, pre_close, up_limit, down_limit) "
+            "VALUES (?, ?, ?, ?, ?)",
+            [
+                ("20260706", "600001.SH", 10.0, 11.0, 9.0),
+                ("20260706", "600002.SH", 10.0, 11.0, 9.0),
+            ],
+        )
+
+    refresh_theme_daily_strength(db_path, "20260706")
+
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT theme_member_count, theme_limit_up_count, theme_total_amount, core_symbols "
+            "FROM theme_daily_strength WHERE trade_date = ? AND theme_name = ?",
+            ("20260706", "机器人"),
+        ).fetchone()
+    assert row == (1, 0, 100.0, "600001.SH")
+
+def test_refresh_theme_daily_strength_uses_regular_amount_not_total_amount(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO theme_members ("
+            "ts_code, name, industry, theme_primary, theme_tags, theme_source, "
+            "confidence, updated_at, notes"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("600001.SH", "普通样本", "机器人", "机器人", "机器人", "manual", "MEDIUM", "2026-07-06", ""),
+        )
+        conn.execute(
+            "INSERT INTO stock_universe ("
+            "ts_code, symbol, name, exchange, market, list_date, "
+            "is_st, is_delisting_risk, included, excluded_reason"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("600001.SH", "600001", "普通样本", "SSE", "主板", "20200101", 0, 0, 1, None),
+        )
+        conn.execute(
+            "INSERT INTO daily_quotes ("
+            "trade_date, ts_code, open, high, low, close, pre_close, pct_chg, vol, amount, "
+            "regular_amount, post_close_amount, total_amount, post_close_amount_ratio, post_close_data_available"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("20260706", "600001.SH", 10.0, 10.1, 9.9, 10.0, 10.0, 0.0, 1.0, 1100.0, 100.0, 1000.0, 1100.0, 0.9091, 1),
+        )
+        conn.execute(
+            "INSERT INTO stk_limit_prices (trade_date, ts_code, pre_close, up_limit, down_limit) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("20260706", "600001.SH", 10.0, 11.0, 9.0),
+        )
+
+    refresh_theme_daily_strength(db_path, "20260706")
+
+    with sqlite3.connect(db_path) as conn:
+        total_amount = conn.execute(
+            "SELECT theme_total_amount FROM theme_daily_strength WHERE trade_date = ? AND theme_name = ?",
+            ("20260706", "机器人"),
+        ).fetchone()[0]
+    assert total_amount == 100.0
+
 def test_manual_single_member_theme_confidence_is_medium(tmp_path: Path) -> None:
     db_path = tmp_path / "trading_x.db"
     init_db(db_path)

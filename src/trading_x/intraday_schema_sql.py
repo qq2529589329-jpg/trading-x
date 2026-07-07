@@ -7,8 +7,9 @@ CREATE_INTRADAY_PLANS_SQL = (
     "vwap_above_confirm_seconds INTEGER, volume_gate_enabled INTEGER, volume_min_abs_amount REAL, "
     "volume_same_window_multiplier REAL, volume_ratio_0935 REAL, volume_ratio_0945 REAL, "
     "volume_ratio_1000 REAL, theme_name TEXT, theme_confidence TEXT, theme_strength_score REAL, "
-    "source_candidate_id TEXT, source_report_date TEXT, plan_json TEXT, system_version TEXT, "
-    "created_at TEXT, PRIMARY KEY (trade_date, ts_code, strategy_type))"
+    "source_candidate_id TEXT, source_report_date TEXT, rule_version_at_signal TEXT, "
+    "rule_regime_at_signal TEXT, plan_json TEXT, system_version TEXT, created_at TEXT, "
+    "PRIMARY KEY (trade_date, ts_code, strategy_type))"
 )
 
 COPY_INTRADAY_PLANS_SQL = (

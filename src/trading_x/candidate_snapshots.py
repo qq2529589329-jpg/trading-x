@@ -7,6 +7,7 @@ import json
 import sqlite3
 
 from trading_x.candidate_models import CandidateReport
+from trading_x.trading_rules import new_rule_compatibility_for, rule_regime_for
 
 
 STRATEGY_VERSION: Final = "rules-v1"
@@ -33,6 +34,10 @@ class CandidateRunRecord:
     notes: str | None
 
 
+def _rule_version(trade_date: str) -> str:
+    return new_rule_compatibility_for(trade_date).trading_rule_version
+
+
 def new_run_id() -> str:
     return uuid4().hex
 
@@ -42,6 +47,8 @@ def persist_candidate_run(
     run: CandidateRunRecord,
     candidates: Sequence[CandidateReport],
 ) -> None:
+    rule_version = _rule_version(run.trade_date)
+    rule_regime = rule_regime_for(run.trade_date)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             "INSERT INTO candidate_runs ("
@@ -68,10 +75,11 @@ def persist_candidate_run(
         conn.executemany(
             "INSERT INTO candidate_snapshots ("
             "run_id, trade_date, rank, ts_code, name, strategy_type, leader_status, "
-            "theme_name, theme_confidence, theme_strength_score, data_capability, "
-            "entry_low, entry_high, stop_price, breakout_price, max_position_cash, max_loss, "
+            "theme_name, theme_confidence, theme_strength_score, data_capability, rule_version_at_signal, "
+            "rule_regime_at_signal, entry_low, entry_high, stop_price, breakout_price, "
+            "max_position_cash, max_loss, "
             "include_reasons_json, reject_reasons_json, plan_json, created_at"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (
                     run.run_id,
@@ -85,6 +93,8 @@ def persist_candidate_run(
                     candidate.theme_confidence,
                     candidate.theme_strength_score,
                     run.data_capability,
+                    rule_version,
+                    rule_regime,
                     candidate.plan_entry_low,
                     candidate.plan_entry_high,
                     candidate.plan_stop_price,
@@ -110,6 +120,8 @@ def persist_candidate_run(
                             "theme_position": candidate.theme_position,
                             "theme_rank_today": candidate.theme_rank_today,
                             "event_confidence": candidate.event_confidence,
+                            "rule_version_at_signal": rule_version,
+                            "rule_regime_at_signal": rule_regime,
                         },
                         ensure_ascii=False,
                         sort_keys=True,

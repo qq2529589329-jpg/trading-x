@@ -98,11 +98,18 @@ def test_update_p0_data_is_idempotent_for_same_trade_date(tmp_path: Path) -> Non
         daily_count = conn.execute("SELECT COUNT(*) FROM daily_quotes").fetchone()[0]
         basic_count = conn.execute("SELECT COUNT(*) FROM daily_basic").fetchone()[0]
         limit_count = conn.execute("SELECT COUNT(*) FROM stk_limit_prices").fetchone()[0]
+        amount_row = conn.execute(
+            "SELECT amount, regular_amount, post_close_amount, total_amount, "
+            "post_close_amount_ratio, post_close_data_available FROM daily_quotes "
+            "WHERE trade_date = ? AND ts_code = ?",
+            ("20260701", "000001.SZ"),
+        ).fetchone()
 
     assert stock_count == 1
     assert daily_count == 1
     assert basic_count == 1
     assert limit_count == 1
+    assert amount_row == (10200.0, 10200.0, 0.0, 10200.0, 0.0, 0)
 
 
 def test_update_p0_data_rejects_empty_p0_table(tmp_path: Path) -> None:

@@ -3,6 +3,7 @@ import json
 import sqlite3
 
 from trading_x.intraday_models import AlertIntent, IntradayAlert, IntradayPlan, ReplayBar, utc_now_text
+from trading_x.trading_rules import is_post_close_fixed_price_time
 
 @dataclass(frozen=True, slots=True)
 class RuleContext:
@@ -64,6 +65,20 @@ def alert_for_bar(
                 "ENTRY_CANCELLED",
             ),
         )
+    if is_post_close_fixed_price_time(plan.trade_date, bar.quote_time):
+        if plan.entry_low <= bar.price <= plan.entry_high:
+            return _alert(
+                plan,
+                bar,
+                AlertIntent(
+                    "WATCH",
+                    "LOW",
+                    "POST_CLOSE_FIXED_PRICE_OBSERVATION",
+                    "OPEN_OBSERVING",
+                    "OPEN_OBSERVING",
+                ),
+            )
+        return None
     if bar.quote_time < plan.vwap_active_after:
         return None
     if vwap is None:

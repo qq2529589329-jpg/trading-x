@@ -41,6 +41,11 @@ class DailyQuoteRow:
     pct_chg: float
     vol: float
     amount: float
+    regular_amount: float | None = None
+    post_close_amount: float | None = None
+    total_amount: float | None = None
+    post_close_amount_ratio: float | None = None
+    post_close_data_available: bool = False
 
 
 @dataclass(frozen=True, slots=True)

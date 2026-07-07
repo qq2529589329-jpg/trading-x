@@ -38,15 +38,19 @@ def upsert_stock_universe(conn: sqlite3.Connection, rows: list[StockBasicRow]) -
 
 
 def upsert_daily_quotes(conn: sqlite3.Connection, rows: list[DailyQuoteRow]) -> None:
-    conn.executemany(
-        "INSERT INTO daily_quotes ("
-        "trade_date, ts_code, open, high, low, close, pre_close, pct_chg, vol, amount"
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-        "ON CONFLICT(trade_date, ts_code) DO UPDATE SET "
-        "open = excluded.open, high = excluded.high, low = excluded.low, "
-        "close = excluded.close, pre_close = excluded.pre_close, "
-        "pct_chg = excluded.pct_chg, vol = excluded.vol, amount = excluded.amount",
-        [
+    params = []
+    for row in rows:
+        regular_amount = row.regular_amount if row.regular_amount is not None else row.amount
+        post_close_amount = row.post_close_amount if row.post_close_amount is not None else 0.0
+        total_amount = row.total_amount if row.total_amount is not None else regular_amount + post_close_amount
+        post_close_amount_ratio = (
+            row.post_close_amount_ratio
+            if row.post_close_amount_ratio is not None
+            else post_close_amount / total_amount
+            if total_amount > 0
+            else 0.0
+        )
+        params.append(
             (
                 row.trade_date,
                 row.ts_code,
@@ -58,9 +62,28 @@ def upsert_daily_quotes(conn: sqlite3.Connection, rows: list[DailyQuoteRow]) -> 
                 row.pct_chg,
                 row.vol,
                 row.amount,
+                regular_amount,
+                post_close_amount,
+                total_amount,
+                post_close_amount_ratio,
+                int(row.post_close_data_available),
             )
-            for row in rows
-        ],
+        )
+    conn.executemany(
+        "INSERT INTO daily_quotes ("
+        "trade_date, ts_code, open, high, low, close, pre_close, pct_chg, vol, amount, "
+        "regular_amount, post_close_amount, total_amount, post_close_amount_ratio, post_close_data_available"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(trade_date, ts_code) DO UPDATE SET "
+        "open = excluded.open, high = excluded.high, low = excluded.low, "
+        "close = excluded.close, pre_close = excluded.pre_close, "
+        "pct_chg = excluded.pct_chg, vol = excluded.vol, amount = excluded.amount, "
+        "regular_amount = excluded.regular_amount, "
+        "post_close_amount = excluded.post_close_amount, "
+        "total_amount = excluded.total_amount, "
+        "post_close_amount_ratio = excluded.post_close_amount_ratio, "
+        "post_close_data_available = excluded.post_close_data_available",
+        params,
     )
 
 

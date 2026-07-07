@@ -4,6 +4,7 @@ import math
 import sqlite3
 
 from trading_x.intraday_models import SYSTEM_VERSION, IntradayPlan, utc_now_text
+from trading_x.trading_rules import new_rule_compatibility_for, rule_regime_for
 from trading_x.types import StrategyType
 
 
@@ -22,8 +23,10 @@ def materialize_intraday_plans(db_path: Path, trade_date: str) -> int:
         snapshot_rows = conn.execute(
             "SELECT cl.run_id, cl.ts_code, cl.name, cl.strategy_type, cl.theme_name, "
             "cl.theme_confidence, cl.theme_strength_score, cl.entry_low, cl.entry_high, "
-            "cl.breakout_price, cl.stop_price, cl.max_position_cash, cl.max_loss, cl.plan_json, "
-            "d.pre_close AS daily_pre_close, l.pre_close AS limit_pre_close "
+            "cl.breakout_price, cl.stop_price, cl.max_position_cash, cl.max_loss, "
+            "cl.rule_version_at_signal, cl.rule_regime_at_signal, cl.plan_json, "
+            "d.pre_close AS daily_pre_close, "
+            "l.pre_close AS limit_pre_close "
             "FROM candidates_latest cl "
             "LEFT JOIN daily_quotes d ON d.ts_code = cl.ts_code AND d.trade_date = cl.trade_date "
             "LEFT JOIN stk_limit_prices l ON l.ts_code = cl.ts_code AND l.trade_date = cl.trade_date "
@@ -81,6 +84,8 @@ def _plan_from_snapshot(trade_date: str, row: sqlite3.Row, created_at: str) -> I
         theme_strength_score=row["theme_strength_score"],
         source_candidate_id=f"{row['run_id']}:{row['ts_code']}:{row['strategy_type']}",
         source_report_date=trade_date,
+        rule_version_at_signal=str(row["rule_version_at_signal"] or _rule_version(trade_date)),
+        rule_regime_at_signal=str(row["rule_regime_at_signal"] or rule_regime_for(trade_date)),
         plan_json=str(row["plan_json"] or ""),
         system_version=SYSTEM_VERSION,
         created_at=created_at,
@@ -92,12 +97,14 @@ def _plan_from_candidate(trade_date: str, row: sqlite3.Row, created_at: str) -> 
     close = _float_or_zero(row["close"])
     high = _float_or_zero(row["high"])
     low = _float_or_zero(row["low"])
+    rule_regime = rule_regime_for(trade_date)
     plan_payload = {
         "source": "candidates+daily_quotes",
         "entry_low": close,
         "entry_high": round(high * 1.05, 2),
         "breakout_price": high,
         "stop_price": low,
+        "rule_regime_at_signal": rule_regime,
     }
     return IntradayPlan(
         trade_date=trade_date,
@@ -128,10 +135,16 @@ def _plan_from_candidate(trade_date: str, row: sqlite3.Row, created_at: str) -> 
         theme_strength_score=row["theme_strength_score"],
         source_candidate_id=f"{row['ts_code']}:{row['strategy_type']}",
         source_report_date=trade_date,
+        rule_version_at_signal=_rule_version(trade_date),
+        rule_regime_at_signal=rule_regime,
         plan_json=json.dumps(plan_payload, ensure_ascii=False, sort_keys=True),
         system_version=SYSTEM_VERSION,
         created_at=created_at,
     )
+
+
+def _rule_version(trade_date: str) -> str:
+    return new_rule_compatibility_for(trade_date).trading_rule_version
 
 
 def _pre_close(limit_pre_close: str | int | float | None, daily_pre_close: str | int | float | None) -> tuple[float, str]:
@@ -193,6 +206,8 @@ def _plan_params(plan: IntradayPlan) -> tuple:
         plan.theme_strength_score,
         plan.source_candidate_id,
         plan.source_report_date,
+        plan.rule_version_at_signal,
+        plan.rule_regime_at_signal,
         plan.plan_json,
         plan.system_version,
         plan.created_at,
@@ -207,6 +222,7 @@ _INSERT_PLAN_SQL = (
     "vwap_above_confirm_seconds, volume_gate_enabled, volume_min_abs_amount, "
     "volume_same_window_multiplier, volume_ratio_0935, volume_ratio_0945, "
     "volume_ratio_1000, theme_name, theme_confidence, theme_strength_score, "
-    "source_candidate_id, source_report_date, plan_json, system_version, created_at"
-    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "source_candidate_id, source_report_date, rule_version_at_signal, rule_regime_at_signal, "
+    "plan_json, system_version, created_at"
+    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )

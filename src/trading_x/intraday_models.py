@@ -50,6 +50,8 @@ class IntradayPlan:
     theme_strength_score: float | None
     source_candidate_id: str
     source_report_date: str
+    rule_version_at_signal: str
+    rule_regime_at_signal: str
     plan_json: str
     system_version: str
     created_at: str
@@ -91,6 +93,8 @@ class IntradayPlan:
             and bool(self.pre_close_source.strip())
             and bool(self.source_candidate_id.strip())
             and self.source_report_date == self.trade_date
+            and bool(self.rule_version_at_signal.strip())
+            and bool(self.rule_regime_at_signal.strip())
             and bool(self.system_version.strip())
             and bool(self.created_at.strip())
             and (not self.volume_gate_enabled or self.volume_min_abs_amount > 0)

@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TypedDict
 import json
 import sqlite3
 
-from trading_x.capabilities import API_DEFINITIONS
+from trading_x.capabilities import API_DEFINITIONS, data_rule_mismatch_messages
 from trading_x.candidate_models import CandidateReport
 from trading_x.candidate_snapshots import (
     CONFIG_HASH,
@@ -17,42 +16,15 @@ from trading_x.candidate_snapshots import (
 )
 from trading_x.candidates import select_candidates
 from trading_x.data_status import p0_incomplete_reason
-from trading_x.market import market_status, report_theme_confidence
+from trading_x.market import MarketEmotion, market_emotion_for, market_status, report_theme_confidence
+from trading_x.report_json import candidate_json, market_emotion_json, new_rule_compatibility_json
 from trading_x.report_markdown import render_markdown
 from trading_x.report_storage import ReportRecord, persist_report_snapshot
+from trading_x.trading_rules import NewRuleCompatibility, new_rule_compatibility_for
 from trading_x.types import Confidence, DataCapabilityLevel
 
 
 SYSTEM_VERSION = "v1.0"
-
-
-class CandidateJson(TypedDict):
-    ts_code: str
-    name: str
-    strategy_type: str
-    candidate_grade: str
-    theme_name: str | None
-    theme_tags: str | None
-    theme_rank_today: int | None
-    theme_strength_score: float | None
-    theme_position: str | None
-    entry_reason: str
-    veto_items: str
-    buy_observation: str
-    abandon_conditions: str
-    max_chase_limit: str
-    structural_stop: str
-    suggested_position: str
-    max_loss: str
-    data_confidence: str
-    theme_confidence: str
-    event_confidence: str
-    plan_entry_low: float | None
-    plan_entry_high: float | None
-    plan_breakout_price: float | None
-    plan_stop_price: float | None
-    plan_max_position_cash: float | None
-    plan_max_loss: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +39,8 @@ class ReportSnapshot:
     risk_blocks: tuple[str, ...]
     candidates: list[CandidateReport]
     theme_confidence: Confidence
+    market_emotion: MarketEmotion
+    new_rule_compatibility: NewRuleCompatibility
 
     def to_json_text(self) -> str:
         return json.dumps(
@@ -82,8 +56,10 @@ class ReportSnapshot:
                     for api_name in self.unavailable_apis
                 ],
                 "theme_confidence": self.theme_confidence,
+                "market_emotion": market_emotion_json(self.market_emotion),
+                "new_rule_compatibility": new_rule_compatibility_json(self.new_rule_compatibility),
                 "risk_blocks": list(self.risk_blocks),
-                "candidates": [_candidate_json(candidate) for candidate in self.candidates],
+                "candidates": [candidate_json(candidate) for candidate in self.candidates],
             },
             ensure_ascii=False,
             sort_keys=True,
@@ -139,6 +115,9 @@ def generate_report(db_path: Path, trade_date: str, report_dir: Path) -> ReportS
 
 def _build_snapshot(db_path: Path, trade_date: str) -> ReportSnapshot:
     available, unavailable = _capability_sets(db_path)
+    emotion = market_emotion_for(db_path, trade_date)
+    rule_messages = data_rule_mismatch_messages(db_path, trade_date)
+    rule_compatibility = new_rule_compatibility_for(trade_date, data_rule_match=not rule_messages)
     incomplete_reason = p0_incomplete_reason(db_path, trade_date)
     if incomplete_reason is not None:
         return ReportSnapshot(
@@ -149,9 +128,11 @@ def _build_snapshot(db_path: Path, trade_date: str) -> ReportSnapshot:
             data_capability=DataCapabilityLevel.DEGRADED,
             available_apis=tuple(sorted(available)),
             unavailable_apis=tuple(sorted(unavailable)),
-            risk_blocks=(f"P0 数据不完整：{incomplete_reason}；禁止新开仓。",),
+            risk_blocks=(f"P0 数据不完整：{incomplete_reason}；禁止新开仓。", *rule_messages),
             candidates=[],
             theme_confidence=Confidence.UNAVAILABLE,
+            market_emotion=emotion,
+            new_rule_compatibility=rule_compatibility,
         )
     level = _level_from_sets(unavailable)
     if (
@@ -162,17 +143,25 @@ def _build_snapshot(db_path: Path, trade_date: str) -> ReportSnapshot:
         level = DataCapabilityLevel.BASIC_WITH_THEME_FALLBACK
     candidates = select_candidates(db_path, trade_date, level, unavailable)
     risk_blocks = _risk_blocks(level, unavailable)
+    risk_blocks.extend(rule_messages)
     return ReportSnapshot(
         trade_date=trade_date,
         system_version=SYSTEM_VERSION,
         market_status=market_status(level, candidates),
-        allow_new_position=bool(candidates) and level != DataCapabilityLevel.DEGRADED,
+        allow_new_position=(
+            bool(candidates)
+            and level != DataCapabilityLevel.DEGRADED
+            and not rule_messages
+            and emotion.core_market_emotion_score >= 0
+        ),
         data_capability=level,
         available_apis=tuple(sorted(available)),
         unavailable_apis=tuple(sorted(unavailable)),
         risk_blocks=tuple(risk_blocks),
         candidates=candidates,
         theme_confidence=report_theme_confidence(candidates, unavailable),
+        market_emotion=emotion,
+        new_rule_compatibility=rule_compatibility,
     )
 
 
@@ -217,37 +206,6 @@ def _fallback_for(api_name: str) -> str:
         if definition.name == api_name:
             return definition.fallback_mode
     return "optional_unavailable"
-
-
-def _candidate_json(candidate: CandidateReport) -> CandidateJson:
-    return {
-        "ts_code": candidate.ts_code,
-        "name": candidate.name,
-        "strategy_type": candidate.strategy_type,
-        "candidate_grade": candidate.candidate_grade,
-        "theme_name": candidate.theme_name,
-        "theme_tags": candidate.theme_tags,
-        "theme_rank_today": candidate.theme_rank_today,
-        "theme_strength_score": candidate.theme_strength_score,
-        "theme_position": candidate.theme_position,
-        "entry_reason": candidate.entry_reason,
-        "veto_items": candidate.veto_items,
-        "buy_observation": candidate.buy_observation,
-        "abandon_conditions": candidate.abandon_conditions,
-        "max_chase_limit": candidate.max_chase_limit,
-        "structural_stop": candidate.structural_stop,
-        "suggested_position": candidate.suggested_position,
-        "max_loss": candidate.max_loss,
-        "data_confidence": candidate.data_confidence,
-        "theme_confidence": candidate.theme_confidence,
-        "event_confidence": candidate.event_confidence,
-        "plan_entry_low": candidate.plan_entry_low,
-        "plan_entry_high": candidate.plan_entry_high,
-        "plan_breakout_price": candidate.plan_breakout_price,
-        "plan_stop_price": candidate.plan_stop_price,
-        "plan_max_position_cash": candidate.plan_max_position_cash,
-        "plan_max_loss": candidate.plan_max_loss,
-    }
 
 
 def _has_theme_fallback(db_path: Path, trade_date: str) -> bool:

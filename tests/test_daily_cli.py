@@ -5,7 +5,9 @@ import sys
 
 from trading_x import cli
 from trading_x.capabilities import ApiCheckResult, DoctorSummary
+from trading_x.market import MarketEmotion
 from trading_x.reports import ReportSnapshot
+from trading_x.trading_rules import new_rule_compatibility_for
 from trading_x.theme_models import ThemeCoverage
 from trading_x.tushare_adapter import (
     DailyBasicRow,
@@ -216,6 +218,19 @@ def _snapshot(trade_date: str) -> ReportSnapshot:
         risk_blocks=("MarketEmotionScore 低于阈值，禁止新开仓",),
         candidates=[],
         theme_confidence=Confidence.LOW,
+        market_emotion=MarketEmotion(
+            core_market_emotion_score=0.0,
+            normal_limit_up_count=0,
+            normal_limit_down_count=0,
+            normal_break_limit_rate=0.0,
+            normal_highest_board=None,
+            normal_limit_premium=None,
+            st_speculation_score=0.0,
+            st_limit_up_count=0,
+            st_limit_down_count=0,
+            st_highest_board=None,
+        ),
+        new_rule_compatibility=new_rule_compatibility_for(trade_date),
     )
 
 

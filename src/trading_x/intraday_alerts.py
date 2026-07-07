@@ -102,6 +102,8 @@ def _plan_from_row(row: sqlite3.Row) -> IntradayPlan:
         theme_strength_score=row["theme_strength_score"],
         source_candidate_id=str(row["source_candidate_id"] or ""),
         source_report_date=str(row["source_report_date"] or ""),
+        rule_version_at_signal=str(row["rule_version_at_signal"] or ""),
+        rule_regime_at_signal=str(row["rule_regime_at_signal"] or ""),
         plan_json=str(row["plan_json"] or ""),
         system_version=str(row["system_version"] or ""),
         created_at=str(row["created_at"] or ""),

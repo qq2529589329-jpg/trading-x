@@ -23,7 +23,8 @@ def test_materialize_intraday_plans_uses_latest_structured_candidate_snapshot(tm
 
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT entry_low, entry_high, breakout_price, stop_price, plan_json "
+            "SELECT entry_low, entry_high, breakout_price, stop_price, plan_json, "
+            "rule_version_at_signal, rule_regime_at_signal "
             "FROM intraday_plans WHERE trade_date = ? AND ts_code = ?",
             ("20260701", "300001.SZ"),
         ).fetchone()
@@ -31,6 +32,8 @@ def test_materialize_intraday_plans_uses_latest_structured_candidate_snapshot(tm
     assert count == 1
     assert row[:4] == (20.1, 21.2, 21.0, 19.5)
     assert '"entry_low": 20.1' in row[4]
+    assert row[5] == "pre_20260706"
+    assert row[6] == "pre_20260706"
 
 
 def test_materialize_intraday_plans_ignores_conflicting_snapshot_prose_prices(

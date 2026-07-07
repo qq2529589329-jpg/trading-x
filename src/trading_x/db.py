@@ -11,6 +11,9 @@ def init_db(db_path: Path) -> None:
         conn.executescript(schema_path.read_text(encoding="utf-8"))
         _ensure_candidates_columns(conn)
         _ensure_candidate_snapshot_columns(conn)
+        _ensure_daily_quote_amount_columns(conn)
+        _ensure_trade_log_rule_columns(conn)
+        _ensure_post_close_activity_columns(conn)
         ensure_intraday_columns(conn)
         _ensure_theme_columns(conn)
 
@@ -32,6 +35,47 @@ def _ensure_candidates_columns(conn: sqlite3.Connection) -> None:
             if name == "theme_rank_today":
                 column_type = "INTEGER"
             conn.execute(f"ALTER TABLE candidates ADD COLUMN {name} {column_type}")
+
+
+def _ensure_daily_quote_amount_columns(conn: sqlite3.Connection) -> None:
+    _ensure_columns(
+        conn,
+        "daily_quotes",
+        (
+            ("regular_amount", "REAL"),
+            ("post_close_amount", "REAL"),
+            ("total_amount", "REAL"),
+            ("post_close_amount_ratio", "REAL"),
+            ("post_close_data_available", "INTEGER"),
+        ),
+    )
+
+
+def _ensure_trade_log_rule_columns(conn: sqlite3.Connection) -> None:
+    _ensure_columns(
+        conn,
+        "trade_logs",
+        (
+            ("rule_version_at_entry", "TEXT"),
+            ("rule_version_at_exit", "TEXT"),
+        ),
+    )
+
+
+def _ensure_post_close_activity_columns(conn: sqlite3.Connection) -> None:
+    _ensure_columns(
+        conn,
+        "post_close_activity",
+        (
+            ("close_price", "REAL"),
+            ("post_close_amount", "REAL"),
+            ("post_close_volume", "REAL"),
+            ("post_close_amount_ratio", "REAL"),
+            ("data_available", "INTEGER"),
+            ("source", "TEXT"),
+            ("created_at", "TEXT"),
+        ),
+    )
 
 
 def _ensure_theme_columns(conn: sqlite3.Connection) -> None:
@@ -59,6 +103,8 @@ def _ensure_candidate_snapshot_columns(conn: sqlite3.Connection) -> None:
         conn,
         "candidate_snapshots",
         (
+            ("rule_version_at_signal", "TEXT"),
+            ("rule_regime_at_signal", "TEXT"),
             ("entry_low", "REAL"),
             ("entry_high", "REAL"),
             ("stop_price", "REAL"),

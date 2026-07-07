@@ -49,7 +49,8 @@ def main() -> int:
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("init-db")
-    subparsers.add_parser("doctor")
+    doctor_parser = subparsers.add_parser("doctor")
+    doctor_parser.add_argument("--date")
     report_parser = subparsers.add_parser("report")
     report_parser.add_argument("--date", required=True)
     update_parser = subparsers.add_parser("update")
@@ -87,7 +88,7 @@ def main() -> int:
         init_db(args.db)
         token = load_tushare_token(env_value=os.environ.get("TUSHARE_TOKEN"))
         adapter = NullAdapter() if token is None else TushareCapabilityAdapter(token)
-        summary = run_doctor(args.db, adapter, token)
+        summary = run_doctor(args.db, adapter, token, args.date)
         print(f"data_capability={summary.level}")
         for message in summary.messages:
             print(message)

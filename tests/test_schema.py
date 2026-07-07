@@ -35,6 +35,7 @@ def test_init_db_creates_required_tables_when_empty_database(tmp_path: Path) -> 
         "candidate_snapshots",
         "reports",
         "trade_logs",
+        "post_close_activity",
         "intraday_plans",
         "intraday_alerts",
         "intraday_alert_locks",
@@ -98,6 +99,94 @@ def test_init_db_adds_theme_weight_columns_to_existing_database(tmp_path: Path) 
 
     assert {"theme_tier", "theme_weight"} <= member_columns
     assert {"weighted_limit_up_count", "weighted_avg_pct_chg", "weighted_total_amount"} <= strength_columns
+
+
+
+def test_init_db_adds_daily_quote_amount_split_columns(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+
+    init_db(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(daily_quotes)")}
+    assert {
+        "regular_amount",
+        "post_close_amount",
+        "total_amount",
+        "post_close_amount_ratio",
+        "post_close_data_available",
+    } <= columns
+
+
+def test_init_db_adds_post_close_activity_table(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+
+    init_db(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(post_close_activity)")}
+    assert {
+        "trade_date",
+        "ts_code",
+        "close_price",
+        "post_close_amount",
+        "post_close_volume",
+        "post_close_amount_ratio",
+        "data_available",
+        "source",
+        "created_at",
+    } <= columns
+
+
+def test_init_db_migrates_existing_post_close_activity_table(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("CREATE TABLE post_close_activity (trade_date TEXT, ts_code TEXT)")
+
+    init_db(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(post_close_activity)")}
+    assert {"post_close_amount", "post_close_volume", "data_available"} <= columns
+
+
+def test_init_db_adds_trade_log_rule_version_columns(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+
+    init_db(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(trade_logs)")}
+    assert {"rule_version_at_entry", "rule_version_at_exit"} <= columns
+
+
+def test_init_db_migrates_existing_trade_logs_for_rule_versions(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "CREATE TABLE trade_logs ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, trade_date TEXT, ts_code TEXT, side TEXT, "
+            "price REAL, shares INTEGER, strategy_type TEXT, note TEXT, created_at TEXT"
+            ")"
+        )
+
+    init_db(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(trade_logs)")}
+    assert {"rule_version_at_entry", "rule_version_at_exit"} <= columns
+
+
+def test_init_db_adds_rule_regime_to_signal_snapshots(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+
+    init_db(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        snapshot_columns = {row[1] for row in conn.execute("PRAGMA table_info(candidate_snapshots)")}
+        plan_columns = {row[1] for row in conn.execute("PRAGMA table_info(intraday_plans)")}
+    assert "rule_regime_at_signal" in snapshot_columns
+    assert "rule_regime_at_signal" in plan_columns
 
 
 def test_replay_csv_contract_requires_zero_padded_quote_time() -> None:
