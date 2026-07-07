@@ -24,3 +24,12 @@
 ## Result
 
 No contradictions found across the specification artifacts.
+
+## Completed Consistency Check
+
+- Position import writes structured positions rows and import-run reproducibility metadata before sell-side replay runs.
+- No-position stop breaks remain buy-plan invalidation only: ENTRY_CANCELLED, not sell-side alerts.
+- Held-position stop breaks emit SELL_TRIGGER when `available_shares` > 0 and lock the same-day terminal alert in intraday_alert_locks.
+- Held positions with `available_shares` = 0 emit risk-only RISK_ALERT / SELL_BLOCKED_T1_NO_AVAILABLE_SHARES, not executable sell triggers.
+- Buy-side Replay MVP reason codes remain stable on the fixed data/replay/20260630.csv fixture.
+- Verification completed with uv run pytest -q, uv run pyright, uv run ruff check, one CLI position import, one Replay MVP fixture run, and one stop-break sell replay run.

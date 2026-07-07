@@ -5,6 +5,10 @@ import sqlite3
 from trading_x.intraday_models import IntradayAlert, IntradayPlan, ReplayBar, utc_now_text
 
 
+def is_terminal_sell_alert(alert_type: str) -> bool:
+    return alert_type == "SELL_TRIGGER"
+
+
 @dataclass(frozen=True, slots=True)
 class PositionSnapshot:
     total_shares: float

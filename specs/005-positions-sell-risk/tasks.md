@@ -30,16 +30,16 @@
 
 ## Phase 4: Locking And Regression
 
-- [ ] T016 Add coverage that same-day `SELL_TRIGGER` locks after the first terminal alert.
-- [ ] T017 Add coverage that buy-side Replay MVP fixture reason codes remain stable.
-- [ ] T018 Implement the minimal sell-side lock path through `intraday_alert_locks`.
-- [ ] T019 Run `uv run pytest`.
-- [ ] T020 Run `uv run pyright`.
-- [ ] T021 Run `uv run ruff check`.
+- [x] T016 Add coverage that same-day `SELL_TRIGGER` locks after the first terminal alert.
+- [x] T017 Add coverage that buy-side Replay MVP fixture reason codes remain stable.
+- [x] T018 Implement the minimal sell-side lock path through `intraday_alert_locks`.
+- [x] T019 Run `uv run pytest`.
+- [x] T020 Run `uv run pyright`.
+- [x] T021 Run `uv run ruff check`.
 
 ## Phase 5: Documentation And Verification
 
-- [ ] T022 Update `analyze.md` with the completed consistency check.
-- [ ] T023 Run the Replay MVP fixture commands.
-- [ ] T024 Run one position import fixture and one stop-break sell fixture.
-- [ ] T025 Commit the positions sell-risk MVP implementation.
+- [x] T022 Update `analyze.md` with the completed consistency check.
+- [x] T023 Run the Replay MVP fixture commands.
+- [x] T024 Run one position import fixture and one stop-break sell fixture.
+- [x] T025 Commit the positions sell-risk MVP implementation.

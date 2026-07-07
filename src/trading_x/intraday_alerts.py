@@ -4,7 +4,7 @@ import sqlite3
 
 from trading_x.intraday_models import IntradayAlert, IntradayPlan, ReplayBar
 from trading_x.intraday_rules import RuleContext, alert_exists, alert_for_bar
-from trading_x.sell_risk import load_position_snapshots
+from trading_x.sell_risk import is_terminal_sell_alert, load_position_snapshots
 from trading_x.types import StrategyType
 
 
@@ -60,7 +60,7 @@ def insert_alert(conn: sqlite3.Connection, alert: IntradayAlert) -> bool:
     if alert_exists(conn, alert, alert.alert_type, alert.reason_code):
         return False
     conn.execute(_INSERT_ALERT_SQL, _alert_params(alert))
-    if alert.alert_type in {"BUY_TRIGGER", "ENTRY_CANCELLED"}:
+    if alert.alert_type in {"BUY_TRIGGER", "ENTRY_CANCELLED"} or is_terminal_sell_alert(alert.alert_type):
         conn.execute(
             "INSERT OR IGNORE INTO intraday_alert_locks ("
             "trade_date, ts_code, strategy_type, alert_type, locked, locked_at, rule_id"

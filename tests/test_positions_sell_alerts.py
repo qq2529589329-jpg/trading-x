@@ -32,6 +32,23 @@ def test_held_position_stop_break_emits_sell_trigger(tmp_path: Path) -> None:
     assert alert_rows(db_path) == [("SELL_TRIGGER", "SELL_TRIGGER_STOP_BREAK")]
 
 
+def test_sell_trigger_locks_after_first_terminal_alert(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+    input_path = tmp_path / "replay.csv"
+    init_db(db_path)
+    insert_plan(db_path, PlanFixture(official_pre_close=10.0, volume_min_abs_amount=1000.0))
+    _insert_position(db_path, available_shares=500.0)
+    write_replay_csv(
+        input_path,
+        "20260630,09:36:00,300001.SZ,9.70,10000,1000,9.80,9.70\n"
+        "20260630,09:37:00,300001.SZ,9.60,11000,1100,9.70,9.60\n",
+    )
+
+    run_replay(db_path, "20260630", input_path, tmp_path / "reports")
+
+    assert alert_rows(db_path) == [("SELL_TRIGGER", "SELL_TRIGGER_STOP_BREAK")]
+    assert _sell_trigger_lock_row(db_path) == (1, "SELL_TRIGGER_STOP_BREAK")
+
 def test_zero_available_position_stop_break_emits_t1_risk_only(tmp_path: Path) -> None:
     db_path = tmp_path / "trading_x.db"
     input_path = tmp_path / "replay.csv"
@@ -45,6 +62,15 @@ def test_zero_available_position_stop_break_emits_t1_risk_only(tmp_path: Path) -
     assert alert_rows(db_path) == [("RISK_ALERT", "SELL_BLOCKED_T1_NO_AVAILABLE_SHARES")]
     assert _sell_trigger_count(db_path) == 0
 
+
+def test_buy_side_replay_fixture_reason_codes_remain_stable(tmp_path: Path) -> None:
+    db_path = tmp_path / "trading_x.db"
+    init_db(db_path)
+    insert_plan(db_path, PlanFixture(official_pre_close=10.0, volume_min_abs_amount=1000.0))
+
+    run_replay(db_path, "20260630", Path("data/replay/20260630.csv"), tmp_path / "reports")
+
+    assert alert_rows(db_path) == [("BUY_TRIGGER", "B_BUY_TRIGGERED")]
 
 def _insert_position(db_path: Path, *, available_shares: float) -> None:
     with sqlite3.connect(db_path) as conn:
@@ -86,3 +112,12 @@ def _sell_trigger_count(db_path: Path) -> int:
                 ("SELL_TRIGGER",),
             ).fetchone()[0]
         )
+
+
+def _sell_trigger_lock_row(db_path: Path) -> tuple[int, str] | None:
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT locked, rule_id FROM intraday_alert_locks WHERE alert_type = ?",
+            ("SELL_TRIGGER",),
+        ).fetchone()
+    return None if row is None else (int(row[0]), str(row[1]))
