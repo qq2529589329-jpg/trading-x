@@ -9,6 +9,7 @@ from trading_x.p0_storage import (
     upsert_stock_universe,
 )
 from trading_x.tushare_models import (
+    AdjFactorRow,
     DailyBasicRow,
     DailyQuoteRow,
     LimitPriceRow,
@@ -114,6 +115,17 @@ class TushareP0Adapter:
                 pre_close=_number(row.get("pre_close")),
                 up_limit=_number(row.get("up_limit")),
                 down_limit=_number(row.get("down_limit")),
+            )
+            for row in frame.to_dict("records")
+        ]
+
+    def adj_factor(self, trade_date: str) -> list[AdjFactorRow]:
+        frame = self._pro.adj_factor(trade_date=trade_date)
+        return [
+            AdjFactorRow(
+                trade_date=trade_date,
+                ts_code=_text(row.get("ts_code")),
+                adj_factor=_number(row.get("adj_factor")),
             )
             for row in frame.to_dict("records")
         ]

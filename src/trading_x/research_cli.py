@@ -1,15 +1,21 @@
 from collections.abc import Sequence
 from pathlib import Path
 import argparse
+import os
 
+from trading_x.config import load_tushare_token
 from trading_x.research import (
+    AdjFactorSyncRequest,
     BacktestTrustAuditRequest,
     RegimeClassificationRequest,
     ResearchBacktestRequest,
     audit_research_backtest,
     classify_market_regimes,
     run_research_backtest,
+    sync_backtest_adj_factors,
 )
+from trading_x.tushare_adapter import TushareP0Adapter
+from trading_x.tushare_models import TushareUnavailableError
 from trading_x.types import StrategyType
 
 
@@ -28,6 +34,8 @@ def configure_research_cli(parser: argparse.ArgumentParser, strategy_choices: Se
     audit_parser = subparsers.add_parser("audit-backtest")
     audit_parser.add_argument("--run-id")
     audit_parser.add_argument("--report-dir", type=Path, default=Path("reports/research"))
+    sync_parser = subparsers.add_parser("sync-adj-factors")
+    sync_parser.add_argument("--run-id")
 
 
 def handle_research_command(db_path: Path, args: argparse.Namespace) -> int:
@@ -64,4 +72,19 @@ def handle_research_command(db_path: Path, args: argparse.Namespace) -> int:
         print(f"backtest_trust_audit={result.status} run_id={result.run_id} issues={result.issue_count}")
         print(f"report={result.report_path}")
         return 0 if result.status == "PASS" else 1
+    if args.research_command == "sync-adj-factors":
+        token = load_tushare_token(env_value=os.environ.get("TUSHARE_TOKEN"))
+        if token is None or token.strip() == "":
+            print("TUSHARE_TOKEN is required")
+            return 1
+        try:
+            result = sync_backtest_adj_factors(db_path, AdjFactorSyncRequest(args.run_id), TushareP0Adapter(token))
+        except TushareUnavailableError as exc:
+            print(str(exc))
+            return 1
+        print(
+            f"adj_factors run_id={result.run_id} missing_before={result.missing_before} "
+            f"inserted={result.inserted_count} missing_after={result.missing_after}"
+        )
+        return 0 if result.missing_after == 0 else 1
     return 1

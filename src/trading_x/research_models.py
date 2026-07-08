@@ -52,6 +52,19 @@ class BacktestTrustAuditRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class AdjFactorSyncRequest:
+    run_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class AdjFactorSyncResult:
+    run_id: str
+    missing_before: int
+    inserted_count: int
+    missing_after: int
+
+
+@dataclass(frozen=True, slots=True)
 class BacktestTrustAuditResult:
     run_id: str
     status: str

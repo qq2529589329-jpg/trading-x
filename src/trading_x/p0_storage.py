@@ -1,6 +1,7 @@
 import sqlite3
 
 from trading_x.tushare_models import (
+    AdjFactorRow,
     DailyBasicRow,
     DailyQuoteRow,
     LimitPriceRow,
@@ -124,6 +125,20 @@ def upsert_limit_prices(conn: sqlite3.Connection, rows: list[LimitPriceRow]) -> 
             for row in rows
         ],
     )
+
+
+def upsert_adj_factors(conn: sqlite3.Connection, rows: list[AdjFactorRow]) -> None:
+    conn.executemany(
+        "INSERT INTO adj_factors (trade_date, ts_code, adj_factor, source, created_at) "
+        "VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT(trade_date, ts_code) DO UPDATE SET "
+        "adj_factor = excluded.adj_factor, source = excluded.source, created_at = excluded.created_at",
+        [
+            (row.trade_date, row.ts_code, row.adj_factor, row.source, row.created_at)
+            for row in rows
+        ],
+    )
+
 
 
 def _is_st(name: str) -> bool:

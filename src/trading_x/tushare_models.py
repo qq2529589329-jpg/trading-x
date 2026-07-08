@@ -69,6 +69,19 @@ class LimitPriceRow:
     down_limit: float
 
 
+@dataclass(frozen=True, slots=True)
+class AdjFactorRow:
+    trade_date: str
+    ts_code: str
+    adj_factor: float
+    source: str = "tushare.adj_factor"
+    created_at: str | None = None
+
+
+class AdjFactorAdapter(Protocol):
+    def adj_factor(self, trade_date: str) -> list[AdjFactorRow]: ...
+
+
 class P0DataAdapter(Protocol):
     def stock_basic(self) -> list[StockBasicRow]: ...
 

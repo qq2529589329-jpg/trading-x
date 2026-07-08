@@ -6,11 +6,14 @@ from trading_x.candidate_models import CandidateReport
 from trading_x.candidate_snapshots import CandidateRunRecord, persist_candidate_run
 from trading_x.db import init_db
 from trading_x.research import (
+    AdjFactorSyncRequest,
     BacktestTrustAuditRequest,
     ResearchBacktestRequest,
     audit_research_backtest,
     run_research_backtest,
+    sync_backtest_adj_factors,
 )
+from trading_x.tushare_models import AdjFactorRow
 from trading_x.types import CandidateGrade, Confidence, DataCapabilityLevel, StrategyType
 
 
@@ -24,6 +27,15 @@ class QuoteFixture:
     close: float
     pre_close: float
     amount: float
+
+
+@dataclass(frozen=True, slots=True)
+class FakeAdjFactorAdapter:
+    def adj_factor(self, trade_date: str) -> list[AdjFactorRow]:
+        return [
+            AdjFactorRow(trade_date, "300004.SZ", 1.2),
+            AdjFactorRow(trade_date, "999999.SZ", 1.0),
+        ]
 
 
 def test_research_backtest_uses_t1_exit_and_records_costs(tmp_path: Path) -> None:
@@ -95,6 +107,30 @@ def test_backtest_trust_audit_passes_for_t1_costed_adjusted_run(tmp_path: Path) 
     assert audit.status == "PASS"
     assert audit.issue_count == 0
     assert "- status: PASS" in audit.report_path.read_text(encoding="utf-8")
+
+
+def test_sync_backtest_adj_factors_fills_missing_audit_inputs(tmp_path: Path) -> None:
+    # Given
+    db_path = tmp_path / "trading_x.db"
+    report_dir = tmp_path / "reports"
+    init_db(db_path)
+    _persist_candidate(db_path, "300004.SZ")
+    _insert_quote(db_path, QuoteFixture("20260702", "300004.SZ", 10.2, 10.8, 10.0, 10.7, 10.0, 200000.0))
+    _insert_quote(db_path, QuoteFixture("20260703", "300004.SZ", 11.0, 11.4, 10.9, 11.2, 10.7, 220000.0))
+    result = run_research_backtest(
+        db_path,
+        ResearchBacktestRequest("20260701", "latest", StrategyType.B_CAPACITY_LEADER, "v1.0", report_dir),
+    )
+
+    # When
+    sync = sync_backtest_adj_factors(db_path, AdjFactorSyncRequest(result.run_id), FakeAdjFactorAdapter())
+    audit = audit_research_backtest(db_path, BacktestTrustAuditRequest(result.run_id, report_dir))
+
+    # Then
+    assert sync.missing_before == 3
+    assert sync.inserted_count == 3
+    assert sync.missing_after == 0
+    assert audit.status == "PASS"
 
 
 def _persist_candidate(db_path: Path, ts_code: str) -> None:
