@@ -52,6 +52,28 @@ class ResearchDateRange:
 
 
 @dataclass(frozen=True, slots=True)
+class BacktestPlan:
+    entry_low: float
+    entry_high: float
+    breakout_price: float
+    stop_price: float
+    max_position_cash: float
+    source: str
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestDecision:
+    reason_code: str
+    planned_price: float
+    fill_price: float
+    plan: BacktestPlan | None
+
+    @property
+    def is_filled(self) -> bool:
+        return self.reason_code == "BUY_FILLED"
+
+
+@dataclass(frozen=True, slots=True)
 class DailyRegimeStats:
     trade_date: str
     avg_pct_chg: float

@@ -125,12 +125,68 @@ def test_research_backtest_uses_candidate_snapshots_and_writes_summary(tmp_path:
         summary = conn.execute(
             "SELECT candidate_count, order_count, trade_count, status FROM backtest_results"
         ).fetchone()
-    assert orders == [("300001.SZ", "BUY", "B_DAILY_PROXY_BREAKOUT")]
+    assert orders == [("300001.SZ", "BUY", "BUY_FILLED")]
     assert trades == [("300001.SZ", "BUY", 10.5, 1000)]
     assert summary == (1, 1, 1, "SUCCESS")
     assert (report_dir / "walk_forward_summary.md").read_text(encoding="utf-8").startswith(
         "# Walk Forward Research Summary"
     )
+
+
+def test_research_backtest_materializes_a_plan_when_snapshot_prices_are_missing(tmp_path: Path) -> None:
+    # Given
+    db_path = tmp_path / "trading_x.db"
+    init_db(db_path)
+    _persist_a_candidate(db_path, "300002.SZ")
+    _insert_a_signal_and_next_quotes(db_path, "300002.SZ")
+
+    # When
+    result = run_research_backtest(
+        db_path,
+        ResearchBacktestRequest(
+            start_date="20260701",
+            end_date="latest",
+            strategy_type=StrategyType.A_SPACE_LEADER,
+            config_version="v1.0",
+            report_dir=tmp_path / "reports" / "research",
+        ),
+    )
+
+    # Then
+    assert result.trade_count == 1
+    with sqlite3.connect(db_path) as conn:
+        reasons = conn.execute("SELECT reason_code FROM backtest_orders").fetchall()
+    assert reasons == [("BUY_FILLED",)]
+
+
+def test_research_backtest_blocks_a_plan_in_risk_off_regime(tmp_path: Path) -> None:
+    # Given
+    db_path = tmp_path / "trading_x.db"
+    init_db(db_path)
+    _persist_a_candidate(db_path, "300003.SZ")
+    _insert_a_signal_and_next_quotes(db_path, "300003.SZ")
+
+    _insert_market_regime(db_path, "20260701", "RISK_OFF")
+
+    # When
+    result = run_research_backtest(
+        db_path,
+        ResearchBacktestRequest(
+            start_date="20260701",
+            end_date="latest",
+            strategy_type=StrategyType.A_SPACE_LEADER,
+            config_version="v1.0",
+            report_dir=tmp_path / "reports" / "research",
+        ),
+    )
+
+    # Then
+    assert result.trade_count == 0
+    with sqlite3.connect(db_path) as conn:
+        reasons = conn.execute("SELECT reason_code FROM backtest_orders").fetchall()
+        trade_count = conn.execute("SELECT COUNT(*) FROM backtest_trades").fetchone()[0]
+    assert reasons == [("RISK_BLOCKED_REGIME",)]
+    assert trade_count == 0
 
 
 def _insert_quote(db_path: Path, quote: QuoteFixture) -> None:
@@ -155,6 +211,54 @@ def _insert_quote(db_path: Path, quote: QuoteFixture) -> None:
             "INSERT INTO stk_limit_prices (trade_date, ts_code, pre_close, up_limit, down_limit) "
             "VALUES (?, ?, ?, ?, ?)",
             (quote.trade_date, quote.ts_code, quote.pre_close, quote.pre_close * 1.1, quote.pre_close * 0.9),
+        )
+
+
+def _persist_a_candidate(db_path: Path, ts_code: str) -> None:
+    persist_candidate_run(
+        db_path,
+        _run("run-1", "2026-07-01T16:00:00+00:00"),
+        [
+            replace(
+                _candidate(ts_code),
+                strategy_type=StrategyType.A_SPACE_LEADER,
+                candidate_grade=CandidateGrade.A_STRONG,
+            )
+        ],
+    )
+
+
+def _insert_a_signal_and_next_quotes(db_path: Path, ts_code: str) -> None:
+    _insert_quote(
+        db_path,
+        QuoteFixture("20260701", ts_code, 10.5, 11.0, 10.2, 11.0, 10.0, 300000.0),
+    )
+    _insert_quote(
+        db_path,
+        QuoteFixture("20260702", ts_code, 10.9, 11.3, 10.8, 11.2, 11.0, 320000.0),
+    )
+
+
+def _insert_market_regime(db_path: Path, trade_date: str, market_regime: str) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO market_regimes ("
+            "trade_date, method_version, market_regime, market_temperature, limit_up_count, "
+            "limit_down_count, avg_pct_chg, total_amount, candidate_count, data_source, created_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                trade_date,
+                "regime-v1",
+                market_regime,
+                0.0,
+                0,
+                0,
+                0.0,
+                0.0,
+                1,
+                "DAILY_PROXY",
+                "2026-07-01T00:00:00+00:00",
+            ),
         )
 
 
