@@ -73,6 +73,20 @@ class BacktestTrustAuditResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ResearchEdgeRequest:
+    run_id: str | None
+    report_dir: Path
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchEdgeResult:
+    run_id: str
+    report_path: Path
+    buy_filled_count: int
+    benchmark_count: int
+
+
+@dataclass(frozen=True, slots=True)
 class ResearchDateRange:
     start_date: str
     end_date: str

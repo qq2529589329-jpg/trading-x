@@ -9,6 +9,8 @@ from trading_x.research import (
     BacktestTrustAuditRequest,
     RegimeClassificationRequest,
     ResearchBacktestRequest,
+    ResearchEdgeRequest,
+    analyze_research_edge,
     audit_research_backtest,
     classify_market_regimes,
     run_research_backtest,
@@ -36,6 +38,9 @@ def configure_research_cli(parser: argparse.ArgumentParser, strategy_choices: Se
     audit_parser.add_argument("--report-dir", type=Path, default=Path("reports/research"))
     sync_parser = subparsers.add_parser("sync-adj-factors")
     sync_parser.add_argument("--run-id")
+    edge_parser = subparsers.add_parser("edge")
+    edge_parser.add_argument("--run-id")
+    edge_parser.add_argument("--report-dir", type=Path, default=Path("reports/research"))
 
 
 def handle_research_command(db_path: Path, args: argparse.Namespace) -> int:
@@ -72,6 +77,14 @@ def handle_research_command(db_path: Path, args: argparse.Namespace) -> int:
         print(f"backtest_trust_audit={result.status} run_id={result.run_id} issues={result.issue_count}")
         print(f"report={result.report_path}")
         return 0 if result.status == "PASS" else 1
+    if args.research_command == "edge":
+        result = analyze_research_edge(db_path, ResearchEdgeRequest(args.run_id, args.report_dir))
+        print(
+            f"research_edge=SUCCESS run_id={result.run_id} "
+            f"buy_filled={result.buy_filled_count} benchmark={result.benchmark_count}"
+        )
+        print(f"report={result.report_path}")
+        return 0
     if args.research_command == "sync-adj-factors":
         token = load_tushare_token(env_value=os.environ.get("TUSHARE_TOKEN"))
         if token is None or token.strip() == "":
