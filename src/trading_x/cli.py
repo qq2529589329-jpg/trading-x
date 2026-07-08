@@ -26,6 +26,7 @@ from trading_x.provider_eval_cli import (
     handle_provider_replay_export_command,
     handle_provider_sample_template_command,
 )
+from trading_x.research_cli import configure_research_cli, handle_research_command
 from trading_x.reports import generate_report
 from trading_x.theme_cli import configure_theme_cli, handle_theme_command
 from trading_x.themes import theme_coverage
@@ -100,6 +101,8 @@ def main() -> int:
     acceptance_parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
     themes_parser = subparsers.add_parser("themes")
     configure_theme_cli(themes_parser)
+    research_parser = subparsers.add_parser("research")
+    configure_research_cli(research_parser, strategy_choices)
     args = parser.parse_args()
 
     if args.command == "init-db":
@@ -205,6 +208,9 @@ def main() -> int:
     if args.command == "themes":
         init_db(args.db)
         return handle_theme_command(args.db, args)
+    if args.command == "research":
+        init_db(args.db)
+        return handle_research_command(args.db, args)
     return 1
 
 

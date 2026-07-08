@@ -381,3 +381,121 @@ CREATE TABLE IF NOT EXISTS intraday_replay_runs (
     ended_at TEXT NOT NULL,
     error_message TEXT
 );
+
+CREATE TABLE IF NOT EXISTS stock_universe_history (
+    trade_date TEXT NOT NULL,
+    ts_code TEXT NOT NULL,
+    name TEXT,
+    exchange TEXT,
+    market TEXT,
+    is_st INTEGER NOT NULL,
+    is_delisting_risk INTEGER NOT NULL,
+    included INTEGER NOT NULL,
+    excluded_reason TEXT,
+    source TEXT,
+    created_at TEXT,
+    PRIMARY KEY (trade_date, ts_code)
+);
+
+CREATE TABLE IF NOT EXISTS adj_factors (
+    trade_date TEXT NOT NULL,
+    ts_code TEXT NOT NULL,
+    adj_factor REAL NOT NULL,
+    source TEXT,
+    created_at TEXT,
+    PRIMARY KEY (trade_date, ts_code)
+);
+
+CREATE TABLE IF NOT EXISTS market_regimes (
+    trade_date TEXT PRIMARY KEY,
+    method_version TEXT NOT NULL,
+    market_regime TEXT NOT NULL,
+    market_temperature REAL NOT NULL,
+    limit_up_count INTEGER NOT NULL,
+    limit_down_count INTEGER NOT NULL,
+    avg_pct_chg REAL NOT NULL,
+    total_amount REAL NOT NULL,
+    candidate_count INTEGER NOT NULL,
+    data_source TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS limit_events_daily_proxy (
+    trade_date TEXT NOT NULL,
+    ts_code TEXT NOT NULL,
+    is_limit_up_close INTEGER NOT NULL,
+    is_limit_down_close INTEGER NOT NULL,
+    high_reached_up_limit INTEGER NOT NULL,
+    low_reached_down_limit INTEGER NOT NULL,
+    data_source TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (trade_date, ts_code)
+);
+
+CREATE TABLE IF NOT EXISTS backtest_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    signal_date TEXT NOT NULL,
+    trade_date TEXT,
+    ts_code TEXT NOT NULL,
+    strategy_type TEXT NOT NULL,
+    side TEXT NOT NULL,
+    planned_price REAL NOT NULL,
+    reason_code TEXT NOT NULL,
+    source_run_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS backtest_trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    signal_date TEXT NOT NULL,
+    trade_date TEXT NOT NULL,
+    ts_code TEXT NOT NULL,
+    strategy_type TEXT NOT NULL,
+    side TEXT NOT NULL,
+    price REAL NOT NULL,
+    shares INTEGER NOT NULL,
+    cash_amount REAL NOT NULL,
+    pnl REAL NOT NULL,
+    reason_code TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS backtest_results (
+    run_id TEXT PRIMARY KEY,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    strategy_type TEXT NOT NULL,
+    config_version TEXT NOT NULL,
+    candidate_count INTEGER NOT NULL,
+    order_count INTEGER NOT NULL,
+    trade_count INTEGER NOT NULL,
+    win_count INTEGER NOT NULL,
+    loss_count INTEGER NOT NULL,
+    total_return REAL NOT NULL,
+    max_drawdown REAL NOT NULL,
+    status TEXT NOT NULL,
+    summary_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_proposals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    proposal_date TEXT NOT NULL,
+    proposal_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS parameter_approvals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    proposal_id INTEGER NOT NULL,
+    parameter_name TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    approved_by TEXT,
+    approved_at TEXT,
+    status TEXT NOT NULL
+);
