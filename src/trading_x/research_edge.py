@@ -8,7 +8,7 @@ from trading_x.research_models import ResearchEdgeRequest, ResearchEdgeResult
 
 HORIZONS: Final = (1, 3, 5, 10)
 Source = Literal["trade", "benchmark"]
-Segment = Literal["overall", "year", "regime", "reason", "reason_year", "reason_month"]
+Segment = Literal["overall", "year", "regime", "reason", "reason_year", "reason_month", "reason_regime"]
 
 TRADE_SEGMENT_EXPR: Final = {
     "overall": "'ALL'",
@@ -17,6 +17,7 @@ TRADE_SEGMENT_EXPR: Final = {
     "reason": "t.reason_code",
     "reason_year": "t.reason_code || ' / ' || substr(t.signal_date, 1, 4)",
     "reason_month": "t.reason_code || ' / ' || substr(t.signal_date, 1, 6)",
+    "reason_regime": "t.reason_code || ' / ' || COALESCE(mr.market_regime, 'UNKNOWN')",
 }
 BENCHMARK_SEGMENT_EXPR: Final = {
     "overall": "'ALL'",
@@ -25,6 +26,7 @@ BENCHMARK_SEGMENT_EXPR: Final = {
     "reason": "o.reason_code",
     "reason_year": "o.reason_code || ' / ' || substr(o.signal_date, 1, 4)",
     "reason_month": "o.reason_code || ' / ' || substr(o.signal_date, 1, 6)",
+    "reason_regime": "o.reason_code || ' / ' || COALESCE(mr.market_regime, 'UNKNOWN')",
 }
 
 
@@ -56,6 +58,7 @@ class _EdgeReport:
     benchmark_by_reason: tuple[_ReturnStat, ...]
     benchmark_by_reason_year: tuple[_ReturnStat, ...]
     benchmark_by_reason_month: tuple[_ReturnStat, ...]
+    benchmark_by_reason_regime: tuple[_ReturnStat, ...]
 
 
 def analyze_research_edge(db_path: Path, request: ResearchEdgeRequest) -> ResearchEdgeResult:
@@ -74,6 +77,7 @@ def analyze_research_edge(db_path: Path, request: ResearchEdgeRequest) -> Resear
             _benchmark_stats(conn, run_id, "reason"),
             _benchmark_stats(conn, run_id, "reason_year"),
             _benchmark_stats(conn, run_id, "reason_month"),
+            _benchmark_stats(conn, run_id, "reason_regime"),
         )
     report_path = request.report_dir / "edge_report.md"
     _write_report(report_path, report)
@@ -204,6 +208,7 @@ def _write_report(report_path: Path, report: _EdgeReport) -> None:
     lines.extend(_stats_section("Benchmark by reason", report.benchmark_by_reason))
     lines.extend(_stats_section("Benchmark by reason/year", report.benchmark_by_reason_year))
     lines.extend(_stats_section("Benchmark by reason/month", report.benchmark_by_reason_month))
+    lines.extend(_stats_section("Benchmark by reason/regime", report.benchmark_by_reason_regime))
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

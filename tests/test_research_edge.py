@@ -48,6 +48,8 @@ def test_research_edge_report_compares_buy_filled_to_candidate_benchmark(tmp_pat
     assert "OPEN_ABOVE_ENTRY_HIGH / 2026" in report
     assert "## Benchmark by reason/month" in report
     assert "OPEN_ABOVE_ENTRY_HIGH / 202607" in report
+    assert "## Benchmark by reason/regime" in report
+    assert "OPEN_ABOVE_ENTRY_HIGH / REPAIR" in report
     assert "REPAIR" in report
     assert "2026" in report
 
