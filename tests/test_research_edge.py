@@ -23,6 +23,7 @@ def test_research_edge_report_compares_buy_filled_to_candidate_benchmark(tmp_pat
         _insert_backtest_run(conn)
         _insert_order(conn, "300001.SZ", "BUY_FILLED")
         _insert_order(conn, "300002.SZ", "OPEN_ABOVE_ENTRY_HIGH")
+        _insert_order(conn, "300003.SZ", "A_GAP_CONTINUATION_CANDIDATE")
         _insert_trade(conn, "300001.SZ")
         conn.execute(
             "INSERT INTO market_regimes (trade_date, method_version, market_regime, market_temperature, "
@@ -30,7 +31,7 @@ def test_research_edge_report_compares_buy_filled_to_candidate_benchmark(tmp_pat
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             ("20260701", "regime-v1", "REPAIR", 0.6, 8, 1, 1.2, 1000000.0, 2, "fixture", "2026-07-01T16:00:00+00:00"),
         )
-        for ts_code, start_close in (("300001.SZ", 10.0), ("300002.SZ", 20.0)):
+        for ts_code, start_close in (("300001.SZ", 10.0), ("300002.SZ", 20.0), ("300003.SZ", 30.0)):
             for index in range(0, 12):
                 close = start_close + index
                 _insert_quote(conn, QuoteRow(f"202607{index + 2:02d}", ts_code, close))
@@ -41,8 +42,8 @@ def test_research_edge_report_compares_buy_filled_to_candidate_benchmark(tmp_pat
     # Then
     report = result.report_path.read_text(encoding="utf-8")
     assert result.buy_filled_count == 1
-    assert result.benchmark_count == 2
-    assert "| 1 | 1 | 10.0000% | 10.0000% | 2 |" in report
+    assert result.benchmark_count == 3
+    assert "| 1 | 1 | 10.0000% | 10.0000% | 3 | 6.1111% |" in report
     assert "OPEN_ABOVE_ENTRY_HIGH" in report
     assert "## Benchmark by reason/year" in report
     assert "OPEN_ABOVE_ENTRY_HIGH / 2026" in report
@@ -50,6 +51,8 @@ def test_research_edge_report_compares_buy_filled_to_candidate_benchmark(tmp_pat
     assert "OPEN_ABOVE_ENTRY_HIGH / 202607" in report
     assert "## Benchmark by reason/regime" in report
     assert "OPEN_ABOVE_ENTRY_HIGH / REPAIR" in report
+    assert "## A_GAP month stability" in report
+    assert "| 202607 | 1/3/5/10 | 1 | 1 | 1 | 0 | 0 |" in report
     assert "REPAIR" in report
     assert "2026" in report
 

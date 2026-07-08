@@ -7,6 +7,8 @@ from trading_x.research_backtest_audit import BacktestAuditUnavailableError
 from trading_x.research_models import ResearchEdgeRequest, ResearchEdgeResult
 
 HORIZONS: Final = (1, 3, 5, 10)
+A_GAP_REASON: Final = "A_GAP_CONTINUATION_CANDIDATE"
+STABLE_MONTH_MIN_SAMPLES: Final = 5
 Source = Literal["trade", "benchmark"]
 Segment = Literal["overall", "year", "regime", "reason", "reason_year", "reason_month", "reason_regime"]
 
@@ -209,6 +211,7 @@ def _write_report(report_path: Path, report: _EdgeReport) -> None:
     lines.extend(_stats_section("Benchmark by reason/year", report.benchmark_by_reason_year))
     lines.extend(_stats_section("Benchmark by reason/month", report.benchmark_by_reason_month))
     lines.extend(_stats_section("Benchmark by reason/regime", report.benchmark_by_reason_regime))
+    lines.extend(_gap_month_stability_section(report.benchmark_by_reason_month))
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -236,6 +239,35 @@ def _stats_section(title: str, rows: tuple[_ReturnStat, ...]) -> list[str]:
         f"{_pct(row.median_return)} | {_pct(row.win_rate)} |"
         for row in rows
     )
+    return lines
+
+
+def _gap_month_stability_section(rows: tuple[_ReturnStat, ...]) -> list[str]:
+    prefix = f"{A_GAP_REASON} / "
+    by_month: dict[str, dict[int, _ReturnStat]] = {}
+    for row in rows:
+        if not row.bucket.startswith(prefix):
+            continue
+        month = row.bucket.removeprefix(prefix)
+        by_month.setdefault(month, {})[row.horizon] = row
+    lines = [
+        "",
+        "## A_GAP month stability",
+        "",
+        "| month | horizons | min_n | avg_pos | median_pos | sampled | stable |",
+        "|---|---|---:|---:|---:|---:|---:|",
+    ]
+    for month, stats in sorted(by_month.items()):
+        present = tuple(horizon for horizon in HORIZONS if horizon in stats)
+        min_n = min(stats[horizon].sample_count for horizon in present) if present else 0
+        avg_pos = bool(present) and all(stats[horizon].avg_return > 0 for horizon in present)
+        median_pos = bool(present) and all(stats[horizon].median_return > 0 for horizon in present)
+        sampled = len(present) == len(HORIZONS) and min_n >= STABLE_MONTH_MIN_SAMPLES
+        stable = sampled and avg_pos and median_pos
+        lines.append(
+            f"| {month} | {'/'.join(str(horizon) for horizon in present)} | {min_n} | "
+            f"{int(avg_pos)} | {int(median_pos)} | {int(sampled)} | {int(stable)} |"
+        )
     return lines
 
 
