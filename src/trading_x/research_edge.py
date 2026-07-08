@@ -4,11 +4,9 @@ import sqlite3
 from typing import Final, Literal, assert_never
 
 from trading_x.research_backtest_audit import BacktestAuditUnavailableError
+from trading_x.research_edge_report import EdgeReport, HORIZONS, ReturnStat, write_edge_report
 from trading_x.research_models import ResearchEdgeRequest, ResearchEdgeResult
 
-HORIZONS: Final = (1, 3, 5, 10)
-A_GAP_REASON: Final = "A_GAP_CONTINUATION_CANDIDATE"
-STABLE_MONTH_MIN_SAMPLES: Final = 5
 Source = Literal["trade", "benchmark"]
 Segment = Literal["overall", "year", "regime", "reason", "reason_year", "reason_month", "reason_regime"]
 
@@ -40,28 +38,6 @@ class _EdgeQuery:
     segment: Segment
 
 
-@dataclass(frozen=True, slots=True)
-class _ReturnStat:
-    bucket: str
-    horizon: int
-    sample_count: int
-    avg_return: float
-    median_return: float
-    win_rate: float
-
-
-@dataclass(frozen=True, slots=True)
-class _EdgeReport:
-    run_id: str
-    trade_overall: list[_ReturnStat]
-    benchmark_overall: list[_ReturnStat]
-    by_year: tuple[_ReturnStat, ...]
-    by_regime: tuple[_ReturnStat, ...]
-    benchmark_by_reason: tuple[_ReturnStat, ...]
-    benchmark_by_reason_year: tuple[_ReturnStat, ...]
-    benchmark_by_reason_month: tuple[_ReturnStat, ...]
-    benchmark_by_reason_regime: tuple[_ReturnStat, ...]
-
 
 def analyze_research_edge(db_path: Path, request: ResearchEdgeRequest) -> ResearchEdgeResult:
     with sqlite3.connect(db_path) as conn:
@@ -70,7 +46,7 @@ def analyze_research_edge(db_path: Path, request: ResearchEdgeRequest) -> Resear
         benchmark_overall = [
             _single_stat(conn, _EdgeQuery(run_id, "benchmark", horizon, "overall")) for horizon in HORIZONS
         ]
-        report = _EdgeReport(
+        report = EdgeReport(
             run_id,
             trade_overall,
             benchmark_overall,
@@ -82,7 +58,7 @@ def analyze_research_edge(db_path: Path, request: ResearchEdgeRequest) -> Resear
             _benchmark_stats(conn, run_id, "reason_regime"),
         )
     report_path = request.report_dir / "edge_report.md"
-    _write_report(report_path, report)
+    write_edge_report(report_path, report)
     return ResearchEdgeResult(
         run_id,
         report_path,
@@ -98,28 +74,28 @@ def _latest_run_id(conn: sqlite3.Connection) -> str:
     return str(row[0])
 
 
-def _single_stat(conn: sqlite3.Connection, query: _EdgeQuery) -> _ReturnStat:
+def _single_stat(conn: sqlite3.Connection, query: _EdgeQuery) -> ReturnStat:
     stats = _stats(conn, query)
     if stats:
         return stats[0]
-    return _ReturnStat("ALL", query.horizon, 0, 0.0, 0.0, 0.0)
+    return ReturnStat("ALL", query.horizon, 0, 0.0, 0.0, 0.0)
 
 
-def _segmented_stats(conn: sqlite3.Connection, run_id: str, segment: Segment) -> tuple[_ReturnStat, ...]:
-    rows: list[_ReturnStat] = []
+def _segmented_stats(conn: sqlite3.Connection, run_id: str, segment: Segment) -> tuple[ReturnStat, ...]:
+    rows: list[ReturnStat] = []
     for horizon in HORIZONS:
         rows.extend(_stats(conn, _EdgeQuery(run_id, "trade", horizon, segment)))
     return tuple(rows)
 
 
-def _benchmark_stats(conn: sqlite3.Connection, run_id: str, segment: Segment) -> tuple[_ReturnStat, ...]:
-    rows: list[_ReturnStat] = []
+def _benchmark_stats(conn: sqlite3.Connection, run_id: str, segment: Segment) -> tuple[ReturnStat, ...]:
+    rows: list[ReturnStat] = []
     for horizon in HORIZONS:
         rows.extend(_stats(conn, _EdgeQuery(run_id, "benchmark", horizon, segment)))
     return tuple(rows)
 
 
-def _stats(conn: sqlite3.Connection, query: _EdgeQuery) -> tuple[_ReturnStat, ...]:
+def _stats(conn: sqlite3.Connection, query: _EdgeQuery) -> tuple[ReturnStat, ...]:
     values_by_bucket: dict[str, list[float]] = {}
     for bucket, value in _return_rows(conn, query):
         values_by_bucket.setdefault(bucket, []).append(value)
@@ -171,8 +147,8 @@ def _benchmark_return_rows(conn: sqlite3.Connection, query: _EdgeQuery) -> list[
     ]
 
 
-def _stat(bucket: str, horizon: int, values: list[float]) -> _ReturnStat:
-    return _ReturnStat(
+def _stat(bucket: str, horizon: int, values: list[float]) -> ReturnStat:
+    return ReturnStat(
         bucket,
         horizon,
         len(values),
@@ -188,88 +164,3 @@ def _median(values: list[float]) -> float:
     if len(sorted_values) % 2 == 1:
         return sorted_values[middle]
     return (sorted_values[middle - 1] + sorted_values[middle]) / 2
-
-
-def _write_report(report_path: Path, report: _EdgeReport) -> None:
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    lines = [
-        "# Research Edge Report",
-        "",
-        f"- run_id: {report.run_id}",
-        "- buy_filled_return: fill price to future close",
-        "- benchmark_return: all backtest orders, entry close to future close",
-        "",
-        "## Overall",
-        "",
-        "| horizon | buy_n | buy_avg | buy_median | benchmark_n | benchmark_avg | excess_avg |",
-        "|---:|---:|---:|---:|---:|---:|---:|",
-    ]
-    lines.extend(_overall_lines(report.trade_overall, report.benchmark_overall))
-    lines.extend(_stats_section("BUY_FILLED by year", report.by_year))
-    lines.extend(_stats_section("BUY_FILLED by regime", report.by_regime))
-    lines.extend(_stats_section("Benchmark by reason", report.benchmark_by_reason))
-    lines.extend(_stats_section("Benchmark by reason/year", report.benchmark_by_reason_year))
-    lines.extend(_stats_section("Benchmark by reason/month", report.benchmark_by_reason_month))
-    lines.extend(_stats_section("Benchmark by reason/regime", report.benchmark_by_reason_regime))
-    lines.extend(_gap_month_stability_section(report.benchmark_by_reason_month))
-    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def _overall_lines(trade_overall: list[_ReturnStat], benchmark_overall: list[_ReturnStat]) -> list[str]:
-    lines: list[str] = []
-    for trade, benchmark in zip(trade_overall, benchmark_overall, strict=True):
-        lines.append(
-            f"| {trade.horizon} | {trade.sample_count} | {_pct(trade.avg_return)} | "
-            f"{_pct(trade.median_return)} | {benchmark.sample_count} | {_pct(benchmark.avg_return)} | "
-            f"{_pct(trade.avg_return - benchmark.avg_return)} |"
-        )
-    return lines
-
-
-def _stats_section(title: str, rows: tuple[_ReturnStat, ...]) -> list[str]:
-    lines = [
-        "",
-        f"## {title}",
-        "",
-        "| horizon | bucket | n | avg | median | win_rate |",
-        "|---:|---|---:|---:|---:|---:|",
-    ]
-    lines.extend(
-        f"| {row.horizon} | {row.bucket} | {row.sample_count} | {_pct(row.avg_return)} | "
-        f"{_pct(row.median_return)} | {_pct(row.win_rate)} |"
-        for row in rows
-    )
-    return lines
-
-
-def _gap_month_stability_section(rows: tuple[_ReturnStat, ...]) -> list[str]:
-    prefix = f"{A_GAP_REASON} / "
-    by_month: dict[str, dict[int, _ReturnStat]] = {}
-    for row in rows:
-        if not row.bucket.startswith(prefix):
-            continue
-        month = row.bucket.removeprefix(prefix)
-        by_month.setdefault(month, {})[row.horizon] = row
-    lines = [
-        "",
-        "## A_GAP month stability",
-        "",
-        "| month | horizons | min_n | avg_pos | median_pos | sampled | stable |",
-        "|---|---|---:|---:|---:|---:|---:|",
-    ]
-    for month, stats in sorted(by_month.items()):
-        present = tuple(horizon for horizon in HORIZONS if horizon in stats)
-        min_n = min(stats[horizon].sample_count for horizon in present) if present else 0
-        avg_pos = bool(present) and all(stats[horizon].avg_return > 0 for horizon in present)
-        median_pos = bool(present) and all(stats[horizon].median_return > 0 for horizon in present)
-        sampled = len(present) == len(HORIZONS) and min_n >= STABLE_MONTH_MIN_SAMPLES
-        stable = sampled and avg_pos and median_pos
-        lines.append(
-            f"| {month} | {'/'.join(str(horizon) for horizon in present)} | {min_n} | "
-            f"{int(avg_pos)} | {int(median_pos)} | {int(sampled)} | {int(stable)} |"
-        )
-    return lines
-
-
-def _pct(value: float) -> str:
-    return f"{value:.4%}"
