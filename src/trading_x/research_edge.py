@@ -8,19 +8,23 @@ from trading_x.research_models import ResearchEdgeRequest, ResearchEdgeResult
 
 HORIZONS: Final = (1, 3, 5, 10)
 Source = Literal["trade", "benchmark"]
-Segment = Literal["overall", "year", "regime", "reason"]
+Segment = Literal["overall", "year", "regime", "reason", "reason_year", "reason_month"]
 
 TRADE_SEGMENT_EXPR: Final = {
     "overall": "'ALL'",
     "year": "substr(t.signal_date, 1, 4)",
     "regime": "COALESCE(mr.market_regime, 'UNKNOWN')",
     "reason": "t.reason_code",
+    "reason_year": "t.reason_code || ' / ' || substr(t.signal_date, 1, 4)",
+    "reason_month": "t.reason_code || ' / ' || substr(t.signal_date, 1, 6)",
 }
 BENCHMARK_SEGMENT_EXPR: Final = {
     "overall": "'ALL'",
     "year": "substr(o.signal_date, 1, 4)",
     "regime": "COALESCE(mr.market_regime, 'UNKNOWN')",
     "reason": "o.reason_code",
+    "reason_year": "o.reason_code || ' / ' || substr(o.signal_date, 1, 4)",
+    "reason_month": "o.reason_code || ' / ' || substr(o.signal_date, 1, 6)",
 }
 
 
@@ -50,6 +54,8 @@ class _EdgeReport:
     by_year: tuple[_ReturnStat, ...]
     by_regime: tuple[_ReturnStat, ...]
     benchmark_by_reason: tuple[_ReturnStat, ...]
+    benchmark_by_reason_year: tuple[_ReturnStat, ...]
+    benchmark_by_reason_month: tuple[_ReturnStat, ...]
 
 
 def analyze_research_edge(db_path: Path, request: ResearchEdgeRequest) -> ResearchEdgeResult:
@@ -65,7 +71,9 @@ def analyze_research_edge(db_path: Path, request: ResearchEdgeRequest) -> Resear
             benchmark_overall,
             _segmented_stats(conn, run_id, "year"),
             _segmented_stats(conn, run_id, "regime"),
-            _benchmark_reason_stats(conn, run_id),
+            _benchmark_stats(conn, run_id, "reason"),
+            _benchmark_stats(conn, run_id, "reason_year"),
+            _benchmark_stats(conn, run_id, "reason_month"),
         )
     report_path = request.report_dir / "edge_report.md"
     _write_report(report_path, report)
@@ -98,10 +106,10 @@ def _segmented_stats(conn: sqlite3.Connection, run_id: str, segment: Segment) ->
     return tuple(rows)
 
 
-def _benchmark_reason_stats(conn: sqlite3.Connection, run_id: str) -> tuple[_ReturnStat, ...]:
+def _benchmark_stats(conn: sqlite3.Connection, run_id: str, segment: Segment) -> tuple[_ReturnStat, ...]:
     rows: list[_ReturnStat] = []
     for horizon in HORIZONS:
-        rows.extend(_stats(conn, _EdgeQuery(run_id, "benchmark", horizon, "reason")))
+        rows.extend(_stats(conn, _EdgeQuery(run_id, "benchmark", horizon, segment)))
     return tuple(rows)
 
 
@@ -194,6 +202,8 @@ def _write_report(report_path: Path, report: _EdgeReport) -> None:
     lines.extend(_stats_section("BUY_FILLED by year", report.by_year))
     lines.extend(_stats_section("BUY_FILLED by regime", report.by_regime))
     lines.extend(_stats_section("Benchmark by reason", report.benchmark_by_reason))
+    lines.extend(_stats_section("Benchmark by reason/year", report.benchmark_by_reason_year))
+    lines.extend(_stats_section("Benchmark by reason/month", report.benchmark_by_reason_month))
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

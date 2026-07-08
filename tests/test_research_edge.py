@@ -44,6 +44,10 @@ def test_research_edge_report_compares_buy_filled_to_candidate_benchmark(tmp_pat
     assert result.benchmark_count == 2
     assert "| 1 | 1 | 10.0000% | 10.0000% | 2 |" in report
     assert "OPEN_ABOVE_ENTRY_HIGH" in report
+    assert "## Benchmark by reason/year" in report
+    assert "OPEN_ABOVE_ENTRY_HIGH / 2026" in report
+    assert "## Benchmark by reason/month" in report
+    assert "OPEN_ABOVE_ENTRY_HIGH / 202607" in report
     assert "REPAIR" in report
     assert "2026" in report
 
