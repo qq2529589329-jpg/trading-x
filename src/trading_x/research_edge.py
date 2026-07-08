@@ -4,7 +4,7 @@ import sqlite3
 from typing import Final, Literal, assert_never
 
 from trading_x.research_backtest_audit import BacktestAuditUnavailableError
-from trading_x.research_edge_report import EdgeReport, HORIZONS, ReturnStat, write_edge_report
+from trading_x.research_edge_report import DecisionReasonCount, EdgeReport, HORIZONS, ReturnStat, write_edge_report
 from trading_x.research_models import ResearchEdgeRequest, ResearchEdgeResult
 
 Source = Literal["trade", "benchmark"]
@@ -46,10 +46,26 @@ def analyze_research_edge(db_path: Path, request: ResearchEdgeRequest) -> Resear
         benchmark_overall = [
             _single_stat(conn, _EdgeQuery(run_id, "benchmark", horizon, "overall")) for horizon in HORIZONS
         ]
+        reason_rows = conn.execute(
+            "SELECT reason_code, COUNT(*) FROM backtest_orders "
+            "WHERE run_id = ? GROUP BY reason_code ORDER BY COUNT(*) DESC, reason_code",
+            (run_id,),
+        ).fetchall()
+        reason_total = sum(int(row[1]) for row in reason_rows)
+        decision_reasons = tuple(
+            DecisionReasonCount(
+                reason_code=str(row[0]),
+                sample_count=int(row[1]),
+                share=int(row[1]) / reason_total,
+                filled=str(row[0]) == "BUY_FILLED",
+            )
+            for row in reason_rows
+        )
         report = EdgeReport(
             run_id,
             trade_overall,
             benchmark_overall,
+            decision_reasons,
             _segmented_stats(conn, run_id, "year"),
             _segmented_stats(conn, run_id, "regime"),
             _benchmark_stats(conn, run_id, "reason"),

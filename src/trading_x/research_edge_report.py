@@ -18,10 +18,19 @@ class ReturnStat:
 
 
 @dataclass(frozen=True, slots=True)
+class DecisionReasonCount:
+    reason_code: str
+    sample_count: int
+    share: float
+    filled: bool
+
+
+@dataclass(frozen=True, slots=True)
 class EdgeReport:
     run_id: str
     trade_overall: list[ReturnStat]
     benchmark_overall: list[ReturnStat]
+    decision_reasons: tuple[DecisionReasonCount, ...]
     by_year: tuple[ReturnStat, ...]
     by_regime: tuple[ReturnStat, ...]
     benchmark_by_reason: tuple[ReturnStat, ...]
@@ -45,6 +54,17 @@ def write_edge_report(report_path: Path, report: EdgeReport) -> None:
         "|---:|---:|---:|---:|---:|---:|---:|",
     ]
     lines.extend(_overall_lines(report.trade_overall, report.benchmark_overall))
+    lines.extend([
+        "",
+        "## Decision reason distribution",
+        "",
+        "| reason_code | n | share | filled |",
+        "|---|---:|---:|---:|",
+    ])
+    lines.extend(
+        f"| {row.reason_code} | {row.sample_count} | {_pct(row.share)} | {int(row.filled)} |"
+        for row in report.decision_reasons
+    )
     lines.extend(_stats_section("BUY_FILLED by year", report.by_year))
     lines.extend(_stats_section("BUY_FILLED by regime", report.by_regime))
     lines.extend(_stats_section("Benchmark by reason", report.benchmark_by_reason))

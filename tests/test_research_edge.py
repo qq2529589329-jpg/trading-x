@@ -44,6 +44,11 @@ def test_research_edge_report_compares_buy_filled_to_candidate_benchmark(tmp_pat
     assert result.buy_filled_count == 1
     assert result.benchmark_count == 3
     assert "| 1 | 1 | 10.0000% | 10.0000% | 3 | 6.1111% |" in report
+    assert "## Decision reason distribution" in report
+    assert "| reason_code | n | share | filled |" in report
+    assert "| BUY_FILLED | 1 | 33.3333% | 1 |" in report
+    assert "| OPEN_ABOVE_ENTRY_HIGH | 1 | 33.3333% | 0 |" in report
+    assert "| A_GAP_CONTINUATION_CANDIDATE | 1 | 33.3333% | 0 |" in report
     assert "OPEN_ABOVE_ENTRY_HIGH" in report
     assert "## Benchmark by reason/year" in report
     assert "OPEN_ABOVE_ENTRY_HIGH / 2026" in report
