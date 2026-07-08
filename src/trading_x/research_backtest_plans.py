@@ -34,6 +34,8 @@ def decide_backtest_order(row: sqlite3.Row, plan: BacktestPlan | None) -> Backte
         return BacktestDecision("OPEN_ABOVE_ENTRY_HIGH", plan.breakout_price, 0.0, plan)
     if _positive(row["next_high"]) < plan.breakout_price:
         return BacktestDecision("NO_BREAKOUT_TOUCH", plan.breakout_price, 0.0, plan)
+    if row["exit_trade_date"] is None:
+        return BacktestDecision("NO_T1_EXIT_QUOTE", plan.breakout_price, 0.0, plan)
     fill_price = max(plan.breakout_price, _positive(row["next_open"]))
     return BacktestDecision("BUY_FILLED", plan.breakout_price, fill_price, plan)
 

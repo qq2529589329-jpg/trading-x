@@ -46,6 +46,20 @@ class ResearchBacktestResult:
 
 
 @dataclass(frozen=True, slots=True)
+class BacktestTrustAuditRequest:
+    run_id: str | None
+    report_dir: Path
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestTrustAuditResult:
+    run_id: str
+    status: str
+    issue_count: int
+    report_path: Path
+
+
+@dataclass(frozen=True, slots=True)
 class ResearchDateRange:
     start_date: str
     end_date: str
@@ -96,6 +110,7 @@ class BacktestSummary:
     win_count: int
     loss_count: int
     total_return: float
+    total_cost_amount: float
     reason_counts: tuple[tuple[str, int], ...]
     status: str = "SUCCESS"
 

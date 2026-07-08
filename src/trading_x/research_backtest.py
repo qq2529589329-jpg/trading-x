@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Final
 import hashlib
 import json
 import sqlite3
@@ -12,6 +13,10 @@ from trading_x.research_models import (
     ResearchBacktestResult,
     ResearchDateRange,
 )
+
+BUY_COMMISSION_RATE: Final = 0.0003
+SELL_COMMISSION_RATE: Final = 0.0003
+SELL_STAMP_DUTY_RATE: Final = 0.0005
 
 
 def run_research_backtest(
@@ -34,7 +39,8 @@ def run_research_backtest(
             "d.close AS signal_close, d.high AS signal_high, d.low AS signal_low, "
             "lp.up_limit AS signal_up_limit, mr.market_regime, "
             "nq.trade_date AS next_trade_date, nq.open AS next_open, nq.high AS next_high, "
-            "nq.low AS next_low, nq.close AS next_close, nlp.up_limit AS next_up_limit "
+            "nq.low AS next_low, nq.close AS next_close, nlp.up_limit AS next_up_limit, "
+            "eq.trade_date AS exit_trade_date, eq.close AS exit_close "
             "FROM candidates_latest cl "
             "LEFT JOIN intraday_plans ip ON ip.trade_date = cl.trade_date "
             "AND ip.ts_code = cl.ts_code AND ip.strategy_type = cl.strategy_type "
@@ -45,6 +51,9 @@ def run_research_backtest(
             "SELECT MIN(q.trade_date) FROM daily_quotes q WHERE q.ts_code = cl.ts_code "
             "AND q.trade_date > cl.trade_date) "
             "LEFT JOIN stk_limit_prices nlp ON nlp.trade_date = nq.trade_date AND nlp.ts_code = nq.ts_code "
+            "LEFT JOIN daily_quotes eq ON eq.ts_code = cl.ts_code AND eq.trade_date = ("
+            "SELECT MIN(q.trade_date) FROM daily_quotes q WHERE q.ts_code = cl.ts_code "
+            "AND q.trade_date > nq.trade_date) "
             "WHERE cl.trade_date BETWEEN ? AND ? AND cl.strategy_type = ? "
             "ORDER BY cl.trade_date, cl.rank, cl.ts_code",
             (date_range.start_date, date_range.end_date, request.strategy_type.value),
@@ -54,6 +63,7 @@ def run_research_backtest(
         win_count = 0
         loss_count = 0
         total_cost = 0.0
+        total_cost_amount = 0.0
         total_pnl = 0.0
         reason_counts: dict[str, int] = {}
         for candidate in candidates:
@@ -83,8 +93,14 @@ def run_research_backtest(
             shares = _board_lot_shares(plan.max_position_cash, decision.fill_price)
             if shares == 0:
                 continue
-            pnl = (float(candidate["next_close"]) - decision.fill_price) * shares
-            total_cost += decision.fill_price * shares
+            exit_price = float(candidate["exit_close"])
+            buy_amount = decision.fill_price * shares
+            sell_amount = exit_price * shares
+            gross_pnl = sell_amount - buy_amount
+            cost_amount = _trade_cost(buy_amount, sell_amount)
+            pnl = gross_pnl - cost_amount
+            total_cost += buy_amount
+            total_cost_amount += cost_amount
             total_pnl += pnl
             trade_count += 1
             win_count += 1 if pnl > 0 else 0
@@ -92,8 +108,8 @@ def run_research_backtest(
             conn.execute(
                 "INSERT INTO backtest_trades ("
                 "run_id, signal_date, trade_date, ts_code, strategy_type, side, price, shares, "
-                "cash_amount, pnl, reason_code, created_at"
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "cash_amount, exit_date, exit_price, gross_pnl, cost_amount, pnl, reason_code, created_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     run_id,
                     candidate["trade_date"],
@@ -103,7 +119,11 @@ def run_research_backtest(
                     "BUY",
                     decision.fill_price,
                     shares,
-                    decision.fill_price * shares,
+                    buy_amount,
+                    candidate["exit_trade_date"],
+                    exit_price,
+                    gross_pnl,
+                    cost_amount,
                     pnl,
                     decision.reason_code,
                     created_at,
@@ -122,6 +142,7 @@ def run_research_backtest(
             win_count=win_count,
             loss_count=loss_count,
             total_return=total_return,
+            total_cost_amount=total_cost_amount,
             reason_counts=tuple(sorted(reason_counts.items())),
         )
         _record_backtest_result(conn, summary, created_at)
@@ -158,18 +179,28 @@ def _clear_backtest_run(conn: sqlite3.Connection, run_id: str) -> None:
     conn.execute("DELETE FROM backtest_results WHERE run_id = ?", (run_id,))
 
 
-
-
 def _board_lot_shares(max_position_cash: float | None, entry_price: float) -> int:
     cash = 10000.0 if max_position_cash is None or max_position_cash <= 0 else float(max_position_cash)
     return int(cash // entry_price // 100 * 100)
 
 
+def _trade_cost(buy_amount: float, sell_amount: float) -> float:
+    buy_cost = buy_amount * BUY_COMMISSION_RATE
+    sell_cost = sell_amount * (SELL_COMMISSION_RATE + SELL_STAMP_DUTY_RATE)
+    return buy_cost + sell_cost
+
+
 def _record_backtest_result(conn: sqlite3.Connection, summary: BacktestSummary, created_at: str) -> None:
     summary_json = json.dumps(
         {
+            "cost_model": {
+                "buy_commission_rate": BUY_COMMISSION_RATE,
+                "sell_commission_rate": SELL_COMMISSION_RATE,
+                "sell_stamp_duty_rate": SELL_STAMP_DUTY_RATE,
+            },
             "data_source": DATA_SOURCE,
             "run_id": summary.run_id,
+            "total_cost_amount": summary.total_cost_amount,
             "total_return": summary.total_return,
             "reason_counts": list(summary.reason_counts),
         },
@@ -214,6 +245,7 @@ def _write_walk_forward_summary(summary: BacktestSummary) -> None:
         f"- candidate_count: {summary.candidate_count}",
         f"- order_count: {summary.order_count}",
         f"- trade_count: {summary.trade_count}",
+        f"- total_cost_amount: {summary.total_cost_amount:.2f}",
         f"- total_return: {summary.total_return:.6f}",
         "- reason_counts: " + ", ".join(f"{reason}={count}" for reason, count in summary.reason_counts),
     ]

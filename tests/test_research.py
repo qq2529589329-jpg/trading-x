@@ -102,6 +102,7 @@ def test_research_backtest_uses_candidate_snapshots_and_writes_summary(tmp_path:
         ],
     )
     _insert_quote(db_path, QuoteFixture("20260702", "300001.SZ", 10.2, 10.8, 10.0, 10.7, 10.0, 200000.0))
+    _insert_quote(db_path, QuoteFixture("20260703", "300001.SZ", 10.9, 11.2, 10.8, 11.0, 10.7, 210000.0))
 
     # When
     result = run_research_backtest(
@@ -122,9 +123,7 @@ def test_research_backtest_uses_candidate_snapshots_and_writes_summary(tmp_path:
     with sqlite3.connect(db_path) as conn:
         orders = conn.execute("SELECT ts_code, side, reason_code FROM backtest_orders").fetchall()
         trades = conn.execute("SELECT ts_code, side, price, shares FROM backtest_trades").fetchall()
-        summary = conn.execute(
-            "SELECT candidate_count, order_count, trade_count, status FROM backtest_results"
-        ).fetchone()
+        summary = conn.execute("SELECT candidate_count, order_count, trade_count, status FROM backtest_results").fetchone()
     assert orders == [("300001.SZ", "BUY", "BUY_FILLED")]
     assert trades == [("300001.SZ", "BUY", 10.5, 1000)]
     assert summary == (1, 1, 1, "SUCCESS")
@@ -229,14 +228,9 @@ def _persist_a_candidate(db_path: Path, ts_code: str) -> None:
 
 
 def _insert_a_signal_and_next_quotes(db_path: Path, ts_code: str) -> None:
-    _insert_quote(
-        db_path,
-        QuoteFixture("20260701", ts_code, 10.5, 11.0, 10.2, 11.0, 10.0, 300000.0),
-    )
-    _insert_quote(
-        db_path,
-        QuoteFixture("20260702", ts_code, 10.9, 11.3, 10.8, 11.2, 11.0, 320000.0),
-    )
+    _insert_quote(db_path, QuoteFixture("20260701", ts_code, 10.5, 11.0, 10.2, 11.0, 10.0, 300000.0))
+    _insert_quote(db_path, QuoteFixture("20260702", ts_code, 10.9, 11.3, 10.8, 11.2, 11.0, 320000.0))
+    _insert_quote(db_path, QuoteFixture("20260703", ts_code, 11.2, 11.6, 11.1, 11.4, 11.2, 330000.0))
 
 
 def _insert_market_regime(db_path: Path, trade_date: str, market_regime: str) -> None:

@@ -457,6 +457,10 @@ CREATE TABLE IF NOT EXISTS backtest_trades (
     price REAL NOT NULL,
     shares INTEGER NOT NULL,
     cash_amount REAL NOT NULL,
+    exit_date TEXT,
+    exit_price REAL,
+    gross_pnl REAL,
+    cost_amount REAL,
     pnl REAL NOT NULL,
     reason_code TEXT NOT NULL,
     created_at TEXT NOT NULL

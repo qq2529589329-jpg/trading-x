@@ -14,6 +14,7 @@ def init_db(db_path: Path) -> None:
         _ensure_daily_quote_amount_columns(conn)
         _ensure_trade_log_rule_columns(conn)
         _ensure_post_close_activity_columns(conn)
+        _ensure_backtest_trade_columns(conn)
         ensure_intraday_columns(conn)
         _ensure_theme_columns(conn)
 
@@ -74,6 +75,19 @@ def _ensure_post_close_activity_columns(conn: sqlite3.Connection) -> None:
             ("data_available", "INTEGER"),
             ("source", "TEXT"),
             ("created_at", "TEXT"),
+        ),
+    )
+
+
+def _ensure_backtest_trade_columns(conn: sqlite3.Connection) -> None:
+    _ensure_columns(
+        conn,
+        "backtest_trades",
+        (
+            ("exit_date", "TEXT"),
+            ("exit_price", "REAL"),
+            ("gross_pnl", "REAL"),
+            ("cost_amount", "REAL"),
         ),
     )
 

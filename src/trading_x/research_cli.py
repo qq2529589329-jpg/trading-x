@@ -3,8 +3,10 @@ from pathlib import Path
 import argparse
 
 from trading_x.research import (
+    BacktestTrustAuditRequest,
     RegimeClassificationRequest,
     ResearchBacktestRequest,
+    audit_research_backtest,
     classify_market_regimes,
     run_research_backtest,
 )
@@ -23,6 +25,9 @@ def configure_research_cli(parser: argparse.ArgumentParser, strategy_choices: Se
     backtest_parser.add_argument("--strategy", choices=strategy_choices, default=StrategyType.B_CAPACITY_LEADER.value)
     backtest_parser.add_argument("--config-version", default="v1.0")
     backtest_parser.add_argument("--report-dir", type=Path, default=Path("reports/research"))
+    audit_parser = subparsers.add_parser("audit-backtest")
+    audit_parser.add_argument("--run-id")
+    audit_parser.add_argument("--report-dir", type=Path, default=Path("reports/research"))
 
 
 def handle_research_command(db_path: Path, args: argparse.Namespace) -> int:
@@ -51,4 +56,12 @@ def handle_research_command(db_path: Path, args: argparse.Namespace) -> int:
         )
         print(f"report={result.report_path}")
         return 0
+    if args.research_command == "audit-backtest":
+        result = audit_research_backtest(
+            db_path,
+            BacktestTrustAuditRequest(args.run_id, args.report_dir),
+        )
+        print(f"backtest_trust_audit={result.status} run_id={result.run_id} issues={result.issue_count}")
+        print(f"report={result.report_path}")
+        return 0 if result.status == "PASS" else 1
     return 1
