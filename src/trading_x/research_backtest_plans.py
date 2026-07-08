@@ -1,8 +1,12 @@
 import sqlite3
-from typing import assert_never
+from typing import Final, assert_never
 
 from trading_x.research_models import BacktestDecision, BacktestPlan
 from trading_x.types import StrategyType
+
+# ponytail: fixed hypothesis gates; tune only after walk-forward survives.
+A_GAP_CONTINUATION_MAX_OPEN_GAP: Final = 0.07
+A_GAP_CONTINUATION_MAX_RANK: Final = 3
 
 
 def resolve_backtest_plan(row: sqlite3.Row, strategy_type: StrategyType) -> BacktestPlan | None:
@@ -30,7 +34,15 @@ def decide_backtest_order(row: sqlite3.Row, plan: BacktestPlan | None) -> Backte
         return BacktestDecision("NO_NEXT_QUOTE", plan.breakout_price, 0.0, plan)
     if _is_one_word_limit_up(row):
         return BacktestDecision("ONE_WORD_LIMIT_UP", plan.breakout_price, 0.0, plan)
-    if _positive(row["next_open"]) > plan.entry_high:
+    next_open = _positive(row["next_open"])
+    if next_open > plan.entry_high:
+        if (
+            _text(row["strategy_type"]) == StrategyType.A_SPACE_LEADER.value
+            and next_open <= plan.breakout_price * (1 + A_GAP_CONTINUATION_MAX_OPEN_GAP)
+            and _positive(row["next_low"]) >= plan.breakout_price
+            and 0 < _positive(row["rank"]) <= A_GAP_CONTINUATION_MAX_RANK
+        ):
+            return BacktestDecision("A_GAP_CONTINUATION_CANDIDATE", plan.breakout_price, 0.0, plan)
         return BacktestDecision("OPEN_ABOVE_ENTRY_HIGH", plan.breakout_price, 0.0, plan)
     if _positive(row["next_high"]) < plan.breakout_price:
         return BacktestDecision("NO_BREAKOUT_TOUCH", plan.breakout_price, 0.0, plan)
